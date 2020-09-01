@@ -118,6 +118,7 @@ public class XADD {
     public int _nodeCounter = 1;
     public HashMap<XADDNode, Integer> _hmNode2Int = new HashMap<XADDNode, Integer>();
     public HashMap<Integer, XADDNode> _hmInt2Node = new HashMap<Integer, XADDNode>();
+    public HashMap<String, Integer> _hmVar2Anno = new HashMap<String, Integer>();
 
     // Reduce & Apply Caches
     public HashMap<IntTriple, Integer> _hmReduceCache = new HashMap<IntTriple, Integer>();
@@ -137,6 +138,9 @@ public class XADD {
     public int POS_INF = -1;
     public int NEG_INF = -1;
     public int NAN = -1;
+
+    // Associated LP for transition of an MDP
+    public int _lp = -1;
 
     /////////////////////////////////////////////////////////
     //                   XADD Methods                      //
@@ -829,14 +833,14 @@ public class XADD {
 
     public IntTriple _tempApplyKey = new IntTriple(-1, -1, -1);
 
-    public int apply(int a1, int a2, int op) {
-        int ret = applyInt(a1, a2, op);
+    public int apply(int a1, int a2, int op, int... substitutions) {
+        int ret = applyInt(a1, a2, op, substitutions);
         if (op == MIN || op == MAX)
             ret = makeCanonical(ret);
         return ret;
     }
 
-    public int applyInt(int a1, int a2, int op) {
+    public int applyInt(int a1, int a2, int op, int... substitutions) {
 
         // adding divBranch, -1 if no divison, 1 if branch false, 2 if branch
         // true
@@ -849,7 +853,7 @@ public class XADD {
         // Can we create a terminal node here?
         XADDNode n1 = getExistNode(a1);
         XADDNode n2 = getExistNode(a2);
-        ret = computeTermNode(a1, n1, a2, n2, op);
+        ret = computeTermNode(a1, n1, a2, n2, op, substitutions);
         if (ret == null) {
 
             int v1low, v1high, v2low, v2high, var;
@@ -890,8 +894,8 @@ public class XADD {
             }
 
             // Perform in-line reduction and set min/max for subnodes if needed
-            int low = applyInt(v1low, v2low, op);
-            int high = applyInt(v1high, v2high, op);
+            int low = applyInt(v1low, v2low, op, substitutions);
+            int high = applyInt(v1high, v2high, op, substitutions);
 
             // getINode will take care of 'low==high'
             ret = getINode(var, low, high);
@@ -906,7 +910,7 @@ public class XADD {
     }
 
     // Computes a terminal node value if possible
-    public Integer computeTermNode(int a1, XADDNode n1, int a2, XADDNode n2, int op) {
+    public Integer computeTermNode(int a1, XADDNode n1, int a2, XADDNode n2, int op, int... substitutions) {
         
         //NaN cannot become valid by operations 
         if (a1 == NAN || a2 ==NAN){
@@ -1047,8 +1051,16 @@ public class XADD {
 
             // Operations: +,-,*,/
             if ((op != MAX) && (op != MIN)) {
+                ArithExpr result = new OperExpr(ArithOperation.fromXADDOper(op), xa1._expr, xa2._expr);
+
+                if (substitutions.length > 0) {
+                    return getTermNode(result, result == xa1._expr ? substitutions[0] : substitutions[1]);
+                } else {
+                    return getTermNode(result);
+                }
+                
                 //System.out.println("Returning: " + new OperExpr(ArithOperation.fromXADDOper(op), xa1._expr, xa2._expr));
-                return getTermNode(new OperExpr(ArithOperation.fromXADDOper(op), xa1._expr, xa2._expr));
+                //return getTermNode(new OperExpr(ArithOperation.fromXADDOper(op), xa1._expr, xa2._expr));
             }
 
             CompExpr comp = new CompExpr(CompOperation.LT_EQ, xa1._expr, xa2._expr);
@@ -1058,8 +1070,17 @@ public class XADD {
             int var_index = getVarIndex(d, true);
 
             int node1, node2;
-            node1 = getTermNode(xa1._expr);
-            node2 = getTermNode(xa2._expr);
+            // Get nodes with annotations when substitutions is given
+            if (substitutions.length > 0) {
+                node1 = getTermNode(xa1._expr, substitutions[0]);
+                node2 = getTermNode(xa2._expr, substitutions[1]);
+            } else {
+                node1 = getTermNode(xa1._expr, xa1._annotate);
+                node2 = getTermNode(xa2._expr, xa2._annotate);
+            }
+
+            //node1 = getTermNode(xa1._expr);
+            //node2 = getTermNode(xa2._expr);
 
             // Operations: min/max -- return a decision node
             return getINode(var_index, op == MAX ? node1 : node2,
@@ -2115,7 +2136,7 @@ public class XADD {
             // ??? need to avoid case where max leads to an illegal pruning -- occurs???
             //     e.g., could an unreachable constant prune out another reachable node?
             //     (don't think this can happen... still in context of unreachable constraints)
-            int min_max_eval = apply(eval_upper, eval_lower, _bIsMax ? MAX : MIN); // handle min and max
+            int min_max_eval = apply(eval_upper, eval_lower, _bIsMax ? MAX : MIN, new int[] {xadd_upper_bound, xadd_lower_bound}); // handle min and max
             min_max_eval = reduceLinearize(min_max_eval);
 
             // TODO: investigate... sometimes we are getting a quadratic decision below that should have been linearized!
@@ -2201,6 +2222,49 @@ public class XADD {
             // any information here... just keep diagram as is
             return getTermNode(leaf_val);
         }
+    }
+
+    // Get annotation XADD by recursion. For each path from the root to a leaf, the leaf value 
+    // is replaced by the annotation. 
+    public Integer getArg(Integer n) {
+        XADDNode node = getNode(n);
+
+        if (node instanceof XADDTNode) {
+            return (Integer) ((XADDTNode) node)._annotate;
+        } else {
+            XADDINode inode = (XADDINode) node;
+            Integer low = getArg(inode._low);
+            Integer high = getArg(inode._high);
+
+            int var = inode._var;
+            Decision d = _alOrder.get(var);
+            if (d instanceof ExprDec) {
+                var = getVarIndex(d, true);
+            }
+            return getINodeCanon(var, low, high);
+        }
+    }
+
+    // Get argmax(min) for multi- or uni-variate cases. Max or min operation should already be performed, 
+    // and the resulting annotation XADDs should be referenced by _hmVar2Anno. The order with which optimization
+    // is done is passed so that we can sequentially substitute from the outermost variable annotation.
+    public HashMap<String, Integer> argMax(ArrayList<String> varOrder){
+        int numVar = varOrder.size();
+
+        for (int i=numVar-2; i>=0; i--){
+            String curr_var = varOrder.get(i);
+            Integer curr_anno = _hmVar2Anno.get(curr_var);
+
+            // Substitute all previous annotations sequentially to the current annotation
+            // That is, for i th variable, substitute in i+1, ..., numVar-1 variables
+            for (int j=i+1; j<=numVar-1; j++){
+                String outer_var = varOrder.get(j);
+                Integer outer_anno = _hmVar2Anno.get(outer_var);
+                curr_anno = reduceProcessXADDLeaf(outer_anno, new DeltaFunctionSubstitution(outer_var, curr_anno), true);
+            }
+            _hmVar2Anno.put(curr_var, curr_anno);
+        }
+        return _hmVar2Anno;
     }
     ////////////////////////////////////////////////////
 
@@ -2709,13 +2773,21 @@ public class XADD {
         }
 
         public String toString(int depth) {
-            return "( ["/* "#" + _hmNode2Int.get(this) + ": " */
-                    + _expr.toString() + "] )";
+            String expr = "( ["/* "#" + _hmNode2Int.get(this) + ": " */
+            + _expr.toString() + "] )";
+            String anno = (_annotate != null) ? " anno: " + _annotate.toString() : "";
+            return expr + anno;
+            //return "( ["/* "#" + _hmNode2Int.get(this) + ": " */
+            //        + _expr.toString() + "] )";
         }
 
         public String toString(boolean format) {
-            return "( ["/* "#" + _hmNode2Int.get(this) + ": " */
-                    + _expr.toString(format) + "] )";
+            String expr = "( ["/* "#" + _hmNode2Int.get(this) + ": " */
+            + _expr.toString(format) + "] )";
+            String anno = (_annotate != null) ? " anno: " + _annotate.toString() : "";
+            return expr + anno;
+            //return "( ["/* "#" + _hmNode2Int.get(this) + ": " */
+            //        + _expr.toString(format) + "] )";
         }
 
         @Override
