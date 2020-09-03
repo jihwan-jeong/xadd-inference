@@ -126,6 +126,7 @@ public class XADD {
     public HashMap<Integer, Integer> _hmReduceCanonCache = new HashMap<Integer, Integer>();
     public HashMap<IntPair, Integer> _hmReduceAnnotateCache = new HashMap<IntPair, Integer>();
     public HashMap<IntTriple, Integer> _hmApplyCache = new HashMap<IntTriple, Integer>();
+    public HashMap<IntTriple, Integer> _hmApplyCache2 = new HashMap<IntTriple, Integer>();
     public HashMap<XADDINode, HashSet<String>> _hmINode2Vars = new HashMap<XADDINode, HashSet<String>>();
 
     // Flush
@@ -845,7 +846,12 @@ public class XADD {
         // adding divBranch, -1 if no divison, 1 if branch false, 2 if branch
         // true
         _tempApplyKey.set(a1, a2, op);
-        Integer ret = _hmApplyCache.get(_tempApplyKey);
+
+        // Integer ret = _hmApplyCache.get(_tempApplyKey);
+        // choose applyCache based on if substitutions are provided
+        HashMap<IntTriple, Integer> applyCache = (substitutions.length == 0) ? _hmApplyCache : _hmApplyCache2;
+        Integer ret = applyCache.get(_tempApplyKey);
+
         if (ret != null) {
             return ret;
         }
@@ -905,7 +911,8 @@ public class XADD {
 //            System.out.println("ComputeTermNode: " + n1.toString() + " " + _aOpNames[op] + " " + n2.toString() + "\n                 = " + getString(ret));
 //        }
 
-        _hmApplyCache.put(new IntTriple(a1, a2, op), ret);
+        // _hmApplyCache.put(new IntTriple(a1, a2, op), ret);
+        applyCache.put(new IntTriple(a1, a2, op), ret);
         return ret;
     }
 
@@ -1576,6 +1583,7 @@ public class XADD {
         _hmReduceCanonCache.clear();
         _hmReduceLeafOpCache.clear();
         _hmApplyCache.clear();
+        _hmApplyCache2.clear();
         _hmINode2Vars.clear();
         _hmReduceAnnotateCache.clear();
 
@@ -1799,6 +1807,7 @@ public class XADD {
     // Quick cache snapshot
     public void showCacheSize() {
         System.out.println("APPLY CACHE:    " + _hmApplyCache.size());
+        System.out.println("APPLY2 CACHE:   " + _hmApplyCache2.size());
         System.out.println("REDUCE CACHE:   " + _hmReduceCache.size());
         System.out.println("REDUCE CACHE C: " + _hmReduceCanonCache.size());
         System.out.println("REDUCE CACHE L: " + _hmReduceLeafOpCache.size());
@@ -2071,6 +2080,8 @@ public class XADD {
                 }
             }
 
+            // Find max over all lower bounds and min over all upper bounds.
+            // Also converts expressions from decisions into XADDs.
             // Now explicitly compute lower and upper bounds as XADDs
             //
             // If these are polynomials, must go to +/- infinity at limits so cannot
