@@ -142,6 +142,8 @@ public class XADD {
 
     // Associated LP for transition of an MDP
     public int _lp = -1;
+    // Variables for optimized transitions, over which LP is maximized
+    public ArrayList<String> otvariables;
 
     /////////////////////////////////////////////////////////
     //                   XADD Methods                      //
@@ -2273,7 +2275,7 @@ public class XADD {
                 Integer outer_anno = _hmVar2Anno.get(outer_var);
                 curr_anno = reduceProcessXADDLeaf(outer_anno, new DeltaFunctionSubstitution(outer_var, curr_anno), true);
             }
-            _hmVar2Anno.put(curr_var, curr_anno);
+            _hmVar2Anno.put(curr_var, reduceLP(reduceLinearize(curr_anno)));
         }
         return _hmVar2Anno;
     }

@@ -104,8 +104,14 @@ public class ParseCAMDP {
             _camdp._context.getVarIndex(_camdp._context.new BoolDec(var + "'"), true);
         }
 
-        // Noise vars -- defined after state variables if present
         o = i.next();
+        if ((o instanceof String) && ((String) o).equalsIgnoreCase("otvariables")) {
+            o = i.next();
+            _camdp._context.otvariables = (ArrayList<String>) ((ArrayList) o).clone();
+            o = i.next();
+        }
+
+        // Noise vars -- defined after state variables if present
         if ((o instanceof String) && ((String) o).equalsIgnoreCase("nvariables")) {
             o = i.next();
             NoiseVars = (ArrayList<String>) ((ArrayList) o).clone();
@@ -199,6 +205,22 @@ public class ParseCAMDP {
             NSBVars.add(s + "'");
         for (String s : CVars)
             NSCVars.add(s + "'");
+
+        // Set up transition-lp
+        while (true) {
+            o = push_back == null ? i.next() : push_back;
+            push_back = null;
+            if (!(o instanceof String) || !((String) o).equalsIgnoreCase("transitionlp")) {
+                push_back = o;
+                break;
+            }
+            o = i.next();
+            while (!((String) o).equalsIgnoreCase("endtransition")) {
+                Object o2 = i.next();
+                _camdp._context._lp = _camdp._context.buildCanonicalXADD((ArrayList) o2);
+                o = i.next();
+            }
+        }
 
         // Set up actions
         while (true) {
