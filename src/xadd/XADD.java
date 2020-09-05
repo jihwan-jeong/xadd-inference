@@ -119,6 +119,7 @@ public class XADD {
     public HashMap<XADDNode, Integer> _hmNode2Int = new HashMap<XADDNode, Integer>();
     public HashMap<Integer, XADDNode> _hmInt2Node = new HashMap<Integer, XADDNode>();
     public HashMap<String, Integer> _hmVar2Anno = new HashMap<String, Integer>();
+    public HashMap<String, HashMap<String, Integer>> _hmAction2Var2Anno = new HashMap<String, HashMap<String, Integer>>();
 
     // Reduce & Apply Caches
     public HashMap<IntTriple, Integer> _hmReduceCache = new HashMap<IntTriple, Integer>();
@@ -2272,8 +2273,9 @@ public class XADD {
                 String outer_var = varOrder.get(j);
                 Integer outer_anno = _hmVar2Anno.get(outer_var);
                 curr_anno = reduceProcessXADDLeaf(outer_anno, new DeltaFunctionSubstitution(outer_var, curr_anno), true);
+
             }
-            _hmVar2Anno.put(curr_var, curr_anno);
+            _hmVar2Anno.put(curr_var, reduceLP(reduceLinearize(curr_anno)));
         }
         return _hmVar2Anno;
     }

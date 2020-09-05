@@ -14,20 +14,22 @@ import util.IntTriple;
 import xadd.XADD;
 import xadd.XADDUtils;
 import xadd.ExprLib.*;
+import xadd.XADD.XADDLeafMinOrMax;
 
 /**
- * Main Continuous State and Action MDP (CAMDP) dynamic programming solution class
- * (handles discrete actions, continuous actions, and continuous noise)
+ * Main Continuous State and Action MDP (CAMDP) dynamic programming solution
+ * class (handles discrete actions, continuous actions, and continuous noise)
  *
  * @author Zahra Zamani
  * @author Scott Sanner
  * @version 1.0
  * @language Java (JDK 1.5)
- * <p/>
- * TODO: Reintroduce policy annotation
- * TODO: Allow alternate initialization of V^0 in input file
- * TODO: Action and next-state dependent reward expectations can be pre-computed and added
- * in after value function regression but before continuous parameter maximization.
+ *           <p/>
+ *           TODO: Reintroduce policy annotation TODO: Allow alternate
+ *           initialization of V^0 in input file TODO: Action and next-state
+ *           dependent reward expectations can be pre-computed and added in
+ *           after value function regression but before continuous parameter
+ *           maximization.
  */
 public class CAMDP {
 
@@ -44,8 +46,8 @@ public class CAMDP {
     private static final boolean DONT_SHOW_HUGE_GRAPHS = true;
     private static final int MAXIMUM_XADD_DISPLAY_SIZE = 500;
     public static final boolean SILENCE_ERRORS_PLOTS = false;
-    
-    //Prune and Linear Flags
+
+    // Prune and Linear Flags
     public double maxImediateReward;
     public boolean LINEAR_PROBLEM = true;
     public boolean CONTINUOUS_ACTIONS = true;
@@ -58,7 +60,7 @@ public class CAMDP {
     public int GLOBAL_LB = -9;
     public int GLOBAL_UB = 9;
 
-    //Optimal solution maintenance
+    // Optimal solution maintenance
     public Integer optimalHorizon;
     public ArrayList<Integer> optimalDDList = new ArrayList<Integer>();
     public ArrayList<Double> optimalMaxValueList = new ArrayList<Double>();
@@ -67,7 +69,8 @@ public class CAMDP {
     public final static boolean MAINTAIN_POLICY = false;
 
     /* Cache maintenance */
-    // Unused FLAG? public final static boolean ALWAYS_FLUSH = false; // Always flush DD caches?
+    // Unused FLAG? public final static boolean ALWAYS_FLUSH = false; // Always
+    // flush DD caches?
     public final static double FLUSH_PERCENT_MINIMUM = 0.3d; // Won't flush until < amt
 
     /* For printing */
@@ -107,19 +110,24 @@ public class CAMDP {
     public Integer _maxDD;
     public Integer _prevDD;
     public BigDecimal _bdDiscount; // Discount (gamma) for CMDP
-    public Integer _nMaxIter;   // Number of iterations for CMDP
-    public Integer _nCurIter;   // Number of iterations for CMDP
+    public Integer _nMaxIter; // Number of iterations for CMDP
+    public Integer _nCurIter; // Number of iterations for CMDP
 
     public HashMap<String, ArithExpr> _hmPrimeSubs;
     public HashMap<String, CAction> _hmName2Action;
     public HashMap<IntTriple, Integer> _hmContRegrCache;
+    public HashMap<String, Integer> _hmVar2EqConst;
 
-    // Constraints not currently allowed, should be applied to the reward as -Infinity
-    //public ArrayList<Integer>         _alConstraints;
-
+    // Constraints not currently allowed, should be applied to the reward as
+    // -Infinity
+    // public ArrayList<Integer> _alConstraints;
+    public String _probSize;
     public ComputeQFunction _qfunHelper = null;
 
     public State _initialS = null;
+
+    // Map for setting up actions in bandwidth optimization problem
+    HashMap<String, List<String>> _action2Links = new HashMap<String, List<String>>();
 
     ////////////////////////////////////////////////////////////////////////////
     // Constructors
@@ -145,6 +153,34 @@ public class CAMDP {
         _bdDiscount = new BigDecimal("" + (-1));
         _nMaxIter = null;
         _hmName2Action = new HashMap<String, CAction>();
+
+        //
+        if (file_source.contains("Bandwidth")){
+            String[] tempStr = file_source.split("\\.")[0].split("/");
+            int fnameLength = tempStr[tempStr.length-1].length();
+            _probSize = Character.toString(tempStr[tempStr.length-1].charAt(fnameLength-1));
+            File fname = new File(String.format("src/camdp/ex/discact/BandwidthOptimizationProblems/resources/links%s.txt", _probSize));
+            // System.out.println(links_file.getAbsolutePath());
+            try {
+                FileReader fr = new FileReader(fname);
+                BufferedReader reader = new BufferedReader(fr);
+                while (true) {
+                    String line = reader.readLine();
+                    if (line == null) break;
+    
+                    String[] path2Links = line.split(":");
+                    String actionPath = path2Links[0].trim();
+                    String[] links = path2Links[1].trim().split("\\s*,\\s*");
+                    List<String> listLinks = Arrays.asList(links);
+                    _action2Links.put(actionPath, listLinks);
+                }
+            } catch (IOException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
+        }
+        
+        
 
         // Setup CAMDP according to parsed file contents
         ParseCAMDP parser = new ParseCAMDP(this);
@@ -174,6 +210,8 @@ public class CAMDP {
         _hsBoolNSVars = new HashSet<String>();
         _hsContNSVars = new HashSet<String>();
         _hmPrimeSubs = new HashMap<String, ArithExpr>();
+        _hmVar2EqConst = new HashMap<String, Integer>();
+
         for (String var : _hsContSVars) {
             String prime_var = var + "'";
             _hmPrimeSubs.put(var, new VarExpr(prime_var));
@@ -189,6 +227,12 @@ public class CAMDP {
         LINEAR_PROBLEM = parser.LINEARITY;
         maxImediateReward = parser.MAXREWARD;
         
+        // solve a general transition LP
+        int lp = _context._lp;
+        if (lp != -1){
+            argmaxLPandModifyActionTransitions(lp, parser);
+        }
+                
         // This helper class performs the regression
         _qfunHelper = new ComputeQFunction(_context, this);
         if ( !parser.get_initBVal().isEmpty() || !parser.get_initCVal().isEmpty() )_initialS = new State(parser.get_initCVal(), parser.get_initBVal());
@@ -206,6 +250,111 @@ public class CAMDP {
         }
     }
 
+    private void argmaxLPandModifyActionTransitions(Integer lp, ParseCAMDP parser){
+        HashSet<String> xSet = new HashSet<String>();
+        HashSet<String> aSet = new HashSet<String>();
+        boolean isMax = true;
+        ArrayList<String> varOrder = new ArrayList<String>();
+        Integer dd = lp;
+        
+        // Deal with equality constraints if exist
+        for (Map.Entry<String, ArrayList> eqconst : parser._eqConst.entrySet()){
+            String var = eqconst.getKey();
+            Integer eq_rhs = _context.buildCanonicalXADD(eqconst.getValue());
+            _hmVar2EqConst.put(var, eq_rhs);                
+
+            // Now, substitute rhs to the LP XADD wherever it appears
+            dd = _context.reduceProcessXADDLeaf(eq_rhs, _context.new DeltaFunctionSubstitution(var, dd), true);
+        }
+        
+        // Get a set of all variables and sequentially max out while keeping track of the annotations
+        HashSet<String> varSet = _context.collectVars(dd);
+        for (String var: varSet) {
+            if(!var.contains("x")){
+                aSet.add(var);
+                continue;
+            }
+            xSet.add(var);
+            varOrder.add(var);
+            double min_val = parser._minCVal.get(var);
+            double max_val = parser._maxCVal.get(var);
+
+            XADDLeafMinOrMax max = _context.new XADDLeafMinOrMax(var, min_val, max_val, isMax, System.out);
+            int ixadd = _context.reduceProcessXADDLeaf(dd, max, false);
+
+            // Store argmax xadd to a hash map
+            dd = max._runningResult;
+            Integer anno = _context.getArg(dd);
+            anno = _context.reduceLinearize(anno);
+            anno = _context.reduceLP(anno);
+            _context._hmVar2Anno.put(var, anno);
+        }
+
+        int dd_obj = dd;
+        // Compute the argmax xadd of all variables
+        _context.argMax(varOrder);
+    
+        // Now, for each action, modify argmax XADD of x variables and substitute into transition & reward XADDs.
+        // Reward and transition are referred by _reward and _hmVar2DD, respectively.
+        for (Map.Entry<String, CAction> aname2CAction : _hmName2Action.entrySet()){
+            String aname = aname2CAction.getKey();
+            CAction act = aname2CAction.getValue();
+            Integer origR = act._reward;
+            HashMap<String, Integer> origTrans = act._hmVar2DD;
+            HashMap<String, Integer> modifiedTrans = new HashMap<String, Integer>();
+            HashMap<String, ArithExpr> aReplace = new HashMap<String, ArithExpr>();
+            for (String aVar : aSet){
+                List<String> a_1s = _action2Links.get(aname);
+                if (a_1s.contains(aVar)){
+                    aReplace.put(aVar, new DoubleExpr(1.0));
+                } else {
+                    aReplace.put(aVar, new DoubleExpr(0.0));
+                }
+            }
+            
+            // Substitute aVar values to Reward
+            Integer modifiedR = _context.substitute(origR, aReplace);
+            modifiedR = _context.reduceLP(_context.reduceLinearize(modifiedR));
+
+            // Get the argmax XADD of each x variable and substitute aVar values.
+            // Then, substitute those into reward and transition XADDs.
+            HashMap<String, Integer> hmVar2ModifiedX = new HashMap<String, Integer>();
+            for (String xVar : xSet){
+                Integer origX = _context._hmVar2Anno.get(xVar);
+                Integer modifiedX = _context.substitute(origX, aReplace);  
+                modifiedX = _context.reduceLP(_context.reduceLinearize(modifiedX));
+                for (Map.Entry<String, Integer> x_eq : _hmVar2EqConst.entrySet()){
+                    String x = x_eq.getKey();
+                    Integer eq_rhs = x_eq.getValue();
+                    modifiedR = _context.reduceProcessXADDLeaf(eq_rhs, _context.new DeltaFunctionSubstitution(x, modifiedR), true);
+                }
+                modifiedR = _context.reduceProcessXADDLeaf(modifiedX, _context.new DeltaFunctionSubstitution(xVar, modifiedR), true);
+                modifiedR = _context.reduceLP(_context.reduceLinearize(modifiedR));
+                hmVar2ModifiedX.put(xVar, modifiedX);
+            }
+
+            for (Map.Entry<String, Integer> trans : origTrans.entrySet()){
+                String nsVar = trans.getKey();
+                Integer modifiedTfunc = _context.substitute(trans.getValue(), aReplace);
+                modifiedTfunc = _context.reduceLP(_context.reduceLinearize(modifiedTfunc));
+                for (Map.Entry<String, Integer> x_eq : _hmVar2EqConst.entrySet()){
+                    String x = x_eq.getKey();
+                    Integer eq_rhs = x_eq.getValue();
+                    modifiedTfunc = _context.reduceProcessXADDLeaf(eq_rhs, _context.new DeltaFunctionSubstitution(x, modifiedTfunc), true);
+                }
+
+                for (Map.Entry<String, Integer> xVar2DD : hmVar2ModifiedX.entrySet()){
+                    String xVar = xVar2DD.getKey();
+                    Integer modifiedX = xVar2DD.getValue();
+                    modifiedTfunc = _context.reduceProcessXADDLeaf(modifiedX, _context.new DeltaFunctionSubstitution(xVar, modifiedTfunc), true);
+                    modifiedTfunc = _context.reduceLP(_context.reduceLinearize(modifiedTfunc));
+                }
+                modifiedTrans.put(nsVar, modifiedTfunc);
+            }
+            act._reward = modifiedR;
+            act._hmVar2DD = modifiedTrans;
+        }
+    }
     ////////////////////////////////////////////////////////////////////////////
     // Main value iteration routine
     ////////////////////////////////////////////////////////////////////////////

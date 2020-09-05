@@ -1,0 +1,107 @@
+cvariables (d)
+min-values (0)
+max-values (10000)
+bvariables ()
+nvariables ()
+icvariables (xo1, xo2, x12, x1e, x2e, ao1, ao2, a12, a1e, a2e)
+min-values (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+max-values (3000, 2000, 1000, 1500, 1700, 1, 1, 1, 1, 1)
+ibvariables ()
+avariables ()
+
+transitionlp
+x2e ([xo1 <= ao1 * 3000]
+        ([xo2 <= ao2 * 2000]
+	    ([x12 <= a12 * 1000]
+                ([x1e <= a1e * 1500]
+                    ([x2e <= a2e * 1700]
+                        ([x1e + x2e])
+                        ([-10000])
+		    )
+		    ([-10000])
+                )
+                ([-10000])
+            )
+            ([-10000])
+        )
+        ([-10000])
+    )
+endtransition
+
+eqconstraints
+x1e ([xo1 - x12])
+x2e ([xo2 + x12])
+endeqconstraints
+
+action path1
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+endaction
+
+action path2
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+endaction
+
+action path3
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+endaction
+
+action path12
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+endaction
+
+action path13
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+endaction
+
+action path23
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+endaction
+
+action path123
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+endaction
+
+discount 1.000
+iterations 10

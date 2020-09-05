@@ -1,0 +1,14 @@
+path1: ao1, a13, a35
+path2: ao1, a14, a45
+path3: ao2, a23, a35
+path4: ao2, a24, a45
+path12: ao1, a13, a14, a35, a45
+path13: ao1, ao2, a13, a23, a35
+path14: ao1, ao2, a13, a24, a35, a45
+path23: ao1, ao2, a14, a23, a35, a45
+path24: ao1, ao2, a14, a24, a45
+path34: ao2, a23, a24, a35, a45
+path123: ao1, ao2, a13, a14, a23, a35, a45
+path124: ao1, ao2, a13, a14, a24, a35, a45
+path234: ao1, ao2, a14, a23, a24, a35, a45
+path1234: ao1, ao2, a13, a14, a23, a24, a35, a45
