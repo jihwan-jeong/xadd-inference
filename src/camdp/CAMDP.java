@@ -267,6 +267,8 @@ public class CAMDP {
             dd = _context.reduceProcessXADDLeaf(eq_rhs, _context.new DeltaFunctionSubstitution(var, dd), true);
         }
         
+        flushCaches();
+        
         // Get a set of all variables and sequentially max out while keeping track of the annotations
         HashSet<String> varSet = _context.collectVars(dd);
         for (String var: varSet) {

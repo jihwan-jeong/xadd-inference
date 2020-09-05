@@ -119,7 +119,6 @@ public class XADD {
     public HashMap<XADDNode, Integer> _hmNode2Int = new HashMap<XADDNode, Integer>();
     public HashMap<Integer, XADDNode> _hmInt2Node = new HashMap<Integer, XADDNode>();
     public HashMap<String, Integer> _hmVar2Anno = new HashMap<String, Integer>();
-    public HashMap<String, HashMap<String, Integer>> _hmAction2Var2Anno = new HashMap<String, HashMap<String, Integer>>();
 
     // Reduce & Apply Caches
     public HashMap<IntTriple, Integer> _hmReduceCache = new HashMap<IntTriple, Integer>();
@@ -1082,6 +1081,10 @@ public class XADD {
             if (substitutions.length > 0) {
                 node1 = getTermNode(xa1._expr, substitutions[0]);
                 node2 = getTermNode(xa2._expr, substitutions[1]);
+
+                if (a1 == a2 && ((op == MAX) || (op==MIN))){
+                    return tiebreakBetweenBounds(node1, node2, substitutions);
+                }
             } else {
                 node1 = getTermNode(xa1._expr, xa1._annotate);
                 node2 = getTermNode(xa2._expr, xa2._annotate);
@@ -1096,6 +1099,47 @@ public class XADD {
         }
 
         return null;
+    }
+
+    private int tiebreakBetweenBounds(int node1, int node2, int[] substitutions){
+        /**
+          * Heuristic1: bound (substitution) with higher depth is prefered.
+          * Reason: that bound is expected to have more information.
+          * 
+          * Heuristic2: chose bound that was created using more number ArithExpr.
+          * Reason: such a bound is expected to have more information.
+          */
+
+          // Heuristic1
+        int d1 = depth(substitutions[0]);
+        int d2 = depth(substitutions[1]);
+
+        if (d1 > d2) {
+            return node1;
+        } else if (d2 > d1) {
+            return node2;
+        }
+
+        // Heuristic2
+        int ub_count = substitutions[2];
+        int lb_count = substitutions[3];
+        if (ub_count > lb_count) {
+            return node1;
+        } else if (lb_count > ub_count) {
+            return node2;
+        }
+
+        System.out.println("unhandled case of same evaluations.");
+        return node1;
+    }
+
+    public int depth(int node_id) {
+        XADDNode n = getExistNode(node_id);
+        if (n instanceof XADDTNode) {
+            return 1;
+        }
+        Integer depthBelow = Math.max(depth(((XADDINode) n)._high), depth(((XADDINode) n)._low));
+        return depthBelow + 1;
     }
 
     ////////////////////////
@@ -2148,7 +2192,15 @@ public class XADD {
             // ??? need to avoid case where max leads to an illegal pruning -- occurs???
             //     e.g., could an unreachable constant prune out another reachable node?
             //     (don't think this can happen... still in context of unreachable constraints)
-            int min_max_eval = apply(eval_upper, eval_lower, _bIsMax ? MAX : MIN, new int[] {xadd_upper_bound, xadd_lower_bound}); // handle min and max
+
+            upper_bound = removeRepetitions(upper_bound);
+            lower_bound = removeRepetitions(lower_bound);
+            Integer ub_count = upper_bound.size();
+            Integer lb_count = lower_bound.size(); 
+
+            int min_max_eval = apply(eval_upper, eval_lower, _bIsMax ? MAX : MIN,
+                new int[] { xadd_upper_bound, xadd_lower_bound, ub_count, lb_count });
+            // int min_max_eval = apply(eval_upper, eval_lower, _bIsMax ? MAX : MIN, new int[] {xadd_upper_bound, xadd_lower_bound}); // handle min and max
             min_max_eval = reduceLinearize(min_max_eval);
 
             // TODO: investigate... sometimes we are getting a quadratic decision below that should have been linearized!
@@ -2236,6 +2288,34 @@ public class XADD {
         }
     }
 
+    private ArrayList<ArithExpr> removeRepetitions(ArrayList<ArithExpr> bounds){
+        /**
+        * Bounds are a collection of DoubleExpr and OperExpr.
+        * This method removes duplicates of DoubleExpr bounds.
+        * Duplicates not checked in OperExpr, and are directly copied over.
+        */
+        ArrayList<ArithExpr> newBounds = new ArrayList<ArithExpr>();
+
+        for (ArithExpr expr: bounds) {
+            if (expr instanceof DoubleExpr) {
+                Boolean isPresent = false;
+                for (ArithExpr storedExpr: newBounds) {
+                    if (storedExpr instanceof DoubleExpr) {
+                        if (((DoubleExpr) expr)._dConstVal == ((DoubleExpr) storedExpr)._dConstVal) {
+                            isPresent = true;
+                            break;
+                        }
+                    }
+                }
+                if (!isPresent) {
+                    newBounds.add(expr);
+                }
+            } else {
+                newBounds.add(expr);
+            }
+        }
+        return newBounds;
+    }
     // Get annotation XADD by recursion. For each path from the root to a leaf, the leaf value 
     // is replaced by the annotation. 
     public Integer getArg(Integer n) {
@@ -2273,7 +2353,6 @@ public class XADD {
                 String outer_var = varOrder.get(j);
                 Integer outer_anno = _hmVar2Anno.get(outer_var);
                 curr_anno = reduceProcessXADDLeaf(outer_anno, new DeltaFunctionSubstitution(outer_var, curr_anno), true);
-
             }
             _hmVar2Anno.put(curr_var, reduceLP(reduceLinearize(curr_anno)));
         }
