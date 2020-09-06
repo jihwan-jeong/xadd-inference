@@ -323,26 +323,32 @@ public class XADD {
             e = (ArithExpr) e.makeCanonical();
 
         _tempTNode.set(e, annotation);
-        Integer id = _hmNode2Int.get(_tempTNode);
-        if (id == null) {
-            // Not in cache so create
-            id = _nodeCounter;
-            XADDTNode node = new XADDTNode(e, annotation);
-            _hmNode2Int.put(node, id);
-            _hmInt2Node.put(id, node);
-            _nodeCounter++;
+        Integer id = null;
+        try {
+            id = _hmNode2Int.get(_tempTNode);
+        } catch(Exception e1) {
+            System.out.println(String.format("Annotation: %s\nNode: %s", getString((Integer) annotation), e.toString()));
+        } finally {
+            if (id == null) {
+                // Not in cache so create
+                id = _nodeCounter;
+                XADDTNode node = new XADDTNode(e, annotation);
+                _hmNode2Int.put(node, id);
+                _hmInt2Node.put(id, node);
+                _nodeCounter++;
 
-            // Add in all new continuous variables
-            HashSet<String> all_vars = new HashSet<String>();
-            node._expr.collectVars(all_vars);
-            for (String s : all_vars)
-                // Boolean variables would have been added immediately in BoolDec
-                // so are already in _hsBooleanVars
-                if (!_hsBooleanVars.contains(s) && !_hsContinuousVars.contains(s)) {
-                    addContinuousVar(s);
-                }
+                // Add in all new continuous variables
+                HashSet<String> all_vars = new HashSet<String>();
+                node._expr.collectVars(all_vars);
+                for (String s : all_vars)
+                    // Boolean variables would have been added immediately in BoolDec
+                    // so are already in _hsBooleanVars
+                    if (!_hsBooleanVars.contains(s) && !_hsContinuousVars.contains(s)) {
+                        addContinuousVar(s);
+                    }
+            }
+            return id;
         }
-        return id;
     }
 
     public XADDINode _tempINode = new XADDINode(-1, -1, -1);
@@ -2833,7 +2839,12 @@ public class XADD {
                 if (_annotate == null)
                     return t._annotate == null && t._expr.equals(_expr);
                 else
-                    return t._annotate.equals(_annotate) && t._expr.equals(_expr);
+                    try{
+                        return t._annotate.equals(_annotate) && t._expr.equals(_expr);
+                    } catch (Exception e){
+                        return _annotate.equals(t._annotate) && t._expr.equals(_expr);
+                    }
+                    
             } else
                 return false;
         }
