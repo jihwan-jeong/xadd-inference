@@ -140,6 +140,7 @@ public class XADD {
     public int NEG_INF = -1;
     public int NAN = -1;
     public String _gVar;
+    public boolean _inequalityToEquality = false;
 
     // Associated LP for transition of an MDP
     public int _lp = -1;
@@ -2362,6 +2363,7 @@ public class XADD {
     // is done is passed so that we can sequentially substitute from the outermost variable annotation.
     public HashMap<String, Integer> argMax(ArrayList<String> varOrder){
         int numVar = varOrder.size();
+        _inequalityToEquality = true;
 
         for (int i=numVar-2; i>=0; i--){
             String curr_var = varOrder.get(i);
@@ -2376,6 +2378,8 @@ public class XADD {
             }
             _hmVar2Anno.put(curr_var, reduceLP(reduceLinearize(curr_anno)));
         }
+
+        _inequalityToEquality = false;
         return _hmVar2Anno;
     }
     ////////////////////////////////////////////////////
@@ -2853,7 +2857,11 @@ public class XADD {
                 if (_annotate == null)
                     return t._annotate == null && t._expr.equals(_expr);
                 else
-                    return t._annotate.equals(_annotate) && t._expr.equals(_expr);
+                    try{
+                        return t._annotate.equals(_annotate) && t._expr.equals(_expr);
+                    } catch (Exception e){
+                        return _annotate.equals(t._annotate) && t._expr.equals(_expr);
+                    }
             } else
                 return false;
         }
@@ -3290,6 +3298,13 @@ public class XADD {
                 double dval_lhs = ((DoubleExpr) ((ExprDec) d)._expr._lhs)._dConstVal;
                 double dval_rhs = ((DoubleExpr) ((ExprDec) d)._expr._rhs)._dConstVal;
                 TautDec tdec = null;
+                
+                if (_inequalityToEquality) {
+                    if (((ExprDec) d)._expr._type == CompOperation.GT) {
+                        ((ExprDec) d)._expr._type = CompOperation.GT_EQ;
+                    }
+                }
+
                 switch (((ExprDec) d)._expr._type) {
                     case EQ:
                         tdec = new TautDec(dval_lhs == dval_rhs);
