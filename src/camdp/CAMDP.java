@@ -271,22 +271,35 @@ public class CAMDP {
         
         // Get a set of all variables and sequentially max out while keeping track of the annotations
         HashSet<String> varSet = _context.collectVars(dd);
-        for (String var: varSet) {
-            if(!var.contains("x")){
-                aSet.add(var);
-                continue;
-            }
-            xSet.add(var);
+        for (String var: parser._objVar) {
             varOrder.add(var);
+        }
+        for (String var: varSet) {
+            if (!var.contains("x")){
+                aSet.add(var);
+            } else if (!varOrder.contains(var)){
+                varOrder.add(var);      // variables not in the objective are maximized at the end
+            }
+        }
+        for (String var: varOrder) {
+            xSet.add(var);
             double min_val = parser._minCVal.get(var);
             double max_val = parser._maxCVal.get(var);
 
             XADDLeafMinOrMax max = _context.new XADDLeafMinOrMax(var, min_val, max_val, isMax, System.out);
+            _context.setCurrOptVar(var);
             int ixadd = _context.reduceProcessXADDLeaf(dd, max, false);
 
             // Store argmax xadd to a hash map
+            // Variables not appearing in the objective result in same leaf node values, which 
+            // complicates annotations. We simply put the variable itself as annotation in this case.
             dd = max._runningResult;
-            Integer anno = _context.getArg(dd);
+            Integer anno = -1;
+            if (!parser._objVar.contains(var)){
+                anno = _context.getArg(dd, var);
+            } else {
+                anno = _context.getArg(dd);
+            }
             anno = _context.reduceLinearize(anno);
             anno = _context.reduceLP(anno);
             _context._hmVar2Anno.put(var, anno);
@@ -310,7 +323,7 @@ public class CAMDP {
                 if (a_1s.contains(aVar)){
                     aReplace.put(aVar, new DoubleExpr(1.0));
                 } else {
-                    aReplace.put(aVar, new DoubleExpr(0.0));
+                    aReplace.put(aVar, new DoubleExpr(0.000001));
                 }
             }
             

@@ -126,7 +126,7 @@ public class XADD {
     public HashMap<Integer, Integer> _hmReduceCanonCache = new HashMap<Integer, Integer>();
     public HashMap<IntPair, Integer> _hmReduceAnnotateCache = new HashMap<IntPair, Integer>();
     public HashMap<IntTriple, Integer> _hmApplyCache = new HashMap<IntTriple, Integer>();
-    public HashMap<IntTriple, Integer> _hmApplyCache2 = new HashMap<IntTriple, Integer>();
+    public HashMap<String, HashMap<IntTriple, Integer>> _hmApplyCaches = new HashMap<String, HashMap<IntTriple, Integer>>();
     public HashMap<XADDINode, HashSet<String>> _hmINode2Vars = new HashMap<XADDINode, HashSet<String>>();
 
     // Flush
@@ -139,10 +139,11 @@ public class XADD {
     public int POS_INF = -1;
     public int NEG_INF = -1;
     public int NAN = -1;
+    public String _gVar;
 
     // Associated LP for transition of an MDP
     public int _lp = -1;
-
+    private String _currOptVar;
     /////////////////////////////////////////////////////////
     //                   XADD Methods                      //
     /////////////////////////////////////////////////////////
@@ -847,6 +848,15 @@ public class XADD {
         return ret;
     }
 
+    private HashMap<IntTriple, Integer> getApplyCache(){
+        if (_hmApplyCaches.containsKey(_gVar)){
+            return _hmApplyCaches.get(_gVar);
+        } else {
+            HashMap<IntTriple, Integer> hm = new HashMap<IntTriple, Integer>();
+            _hmApplyCaches.put(_gVar, hm);
+            return hm;
+        }
+    }
     public int applyInt(int a1, int a2, int op, int... substitutions) {
 
         // adding divBranch, -1 if no divison, 1 if branch false, 2 if branch
@@ -855,7 +865,7 @@ public class XADD {
 
         // Integer ret = _hmApplyCache.get(_tempApplyKey);
         // choose applyCache based on if substitutions are provided
-        HashMap<IntTriple, Integer> applyCache = (substitutions.length == 0) ? _hmApplyCache : _hmApplyCache2;
+        HashMap<IntTriple, Integer> applyCache = (substitutions.length == 0) ? _hmApplyCache : getApplyCache();
         Integer ret = applyCache.get(_tempApplyKey);
 
         if (ret != null) {
@@ -922,6 +932,9 @@ public class XADD {
         return ret;
     }
 
+    public void setCurrOptVar(String var){
+        _currOptVar = var;
+    }
     // Computes a terminal node value if possible
     public Integer computeTermNode(int a1, XADDNode n1, int a2, XADDNode n2, int op, int... substitutions) {
         
@@ -1085,11 +1098,19 @@ public class XADD {
             int node1, node2;
             // Get nodes with annotations when substitutions is given
             if (substitutions.length > 0) {
+                
                 node1 = getTermNode(xa1._expr, substitutions[0]);
                 node2 = getTermNode(xa2._expr, substitutions[1]);
 
-                if (a1 == a2 && ((op == MAX) || (op==MIN))){
+                if (a1 == a2 && ((op == MAX) || (op == MIN))){
+                    HashSet<String> vars = collectVars(a1);
+                    // if (!vars.contains(_currOptVar)){
+                    //     return getTermNode(xa1._expr, getTermNode(new VarExpr(_currOptVar)));
+                    // } else {
+                    node1 = getTermNode(xa1._expr, substitutions[0]);
+                    node2 = getTermNode(xa2._expr, substitutions[1]);
                     return tiebreakBetweenBounds(node1, node2, substitutions);
+                    // }
                 }
             } else {
                 node1 = getTermNode(xa1._expr, xa1._annotate);
@@ -1109,22 +1130,22 @@ public class XADD {
 
     private int tiebreakBetweenBounds(int node1, int node2, int[] substitutions){
         /**
-          * Heuristic1: bound (substitution) with higher depth is prefered.
-          * Reason: that bound is expected to have more information.
+          * Heuristic1: Bound (substitution) with higher depth is prefered.
+          * Reason: Such a bound is expected to have more information.
           * 
-          * Heuristic2: chose bound that was created using more number ArithExpr.
-          * Reason: such a bound is expected to have more information.
+          * Heuristic2: Chose bound that was created using more number of expressions (ArithExpr).
+          * Reason: Such a bound is expected to have more information.
           */
 
           // Heuristic1
-        int d1 = depth(substitutions[0]);
-        int d2 = depth(substitutions[1]);
+        // int d1 = depth(substitutions[0]);
+        // int d2 = depth(substitutions[1]);
 
-        if (d1 > d2) {
-            return node1;
-        } else if (d2 > d1) {
-            return node2;
-        }
+        // if (d1 > d2) {
+        //     return node1;
+        // } else if (d2 > d1) {
+        //     return node2;
+        // }
 
         // Heuristic2
         int ub_count = substitutions[2];
@@ -1634,7 +1655,9 @@ public class XADD {
         _hmReduceCanonCache.clear();
         _hmReduceLeafOpCache.clear();
         _hmApplyCache.clear();
-        _hmApplyCache2.clear();
+        for (HashMap<IntTriple, Integer> applyCache: _hmApplyCaches.values()){
+            applyCache.clear();
+        }
         _hmINode2Vars.clear();
         _hmReduceAnnotateCache.clear();
 
@@ -1858,7 +1881,9 @@ public class XADD {
     // Quick cache snapshot
     public void showCacheSize() {
         System.out.println("APPLY CACHE:    " + _hmApplyCache.size());
-        System.out.println("APPLY2 CACHE:   " + _hmApplyCache2.size());
+        for (HashMap<IntTriple, Integer> applyCache: _hmApplyCaches.values()) {
+            System.out.println("VAR APPLY CACHES:   " + applyCache.size());
+        }
         System.out.println("REDUCE CACHE:   " + _hmReduceCache.size());
         System.out.println("REDUCE CACHE C: " + _hmReduceCanonCache.size());
         System.out.println("REDUCE CACHE L: " + _hmReduceLeafOpCache.size());
@@ -2040,6 +2065,7 @@ public class XADD {
             _upperBound = upper_bound;
             _runningResult = -1;
             _log = ps;
+            _gVar = _minOrMaxVar;
         }
 
         // TODO: revisit whether caching is possible, or in what circumstances
@@ -2201,6 +2227,7 @@ public class XADD {
 
             upper_bound = removeRepetitions(upper_bound);
             lower_bound = removeRepetitions(lower_bound);
+
             Integer ub_count = upper_bound.size();
             Integer lb_count = lower_bound.size(); 
 
@@ -2324,15 +2351,24 @@ public class XADD {
     }
     // Get annotation XADD by recursion. For each path from the root to a leaf, the leaf value 
     // is replaced by the annotation. 
-    public Integer getArg(Integer n) {
+    public Integer getArg(Integer n, String... v) {
         XADDNode node = getNode(n);
 
         if (node instanceof XADDTNode) {
+            // if (v.length > 0 && _hmNode2Int.get(node) != NEG_INF){
+            //     return (Integer) getTermNode(new VarExpr(v[0]));
+            // } else {
             return (Integer) ((XADDTNode) node)._annotate;
+            // }
         } else {
             XADDINode inode = (XADDINode) node;
-            Integer low = getArg(inode._low);
-            Integer high = getArg(inode._high);
+            Integer low = getArg(inode._low, v);
+            Integer high = getArg(inode._high, v);
+            
+            if (low == null) {
+                low = ZERO;
+            }
+            if (high == null) high = ZERO;
 
             int var = inode._var;
             Decision d = _alOrder.get(var);

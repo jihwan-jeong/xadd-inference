@@ -30,6 +30,7 @@ public class ParseCAMDP {
     public HashMap<String, Double> _maxCVal = new HashMap<String, Double>();
     public HashMap<String, ArrayList> _eqConst = new HashMap<String, ArrayList>();
     public HashMap<String, ArrayList> _lpObj = new HashMap<String, ArrayList>();    
+    public HashSet<String> _objVar = new HashSet<String>();
     ArrayList<Double> contParam = new ArrayList<Double>(2);
     //	ArrayList<Integer> constraints = new ArrayList<Integer>();
     BigDecimal discount;
@@ -225,6 +226,25 @@ public class ParseCAMDP {
             }
         } // endtransition
         
+        // Get variables contained in the objective 
+        while (true) {
+            o = push_back == null ? i.next() : push_back;
+            push_back = null;
+
+            if (!(o instanceof String) || !((String) o).equalsIgnoreCase("objectivevar")){
+                push_back = o;
+                break;
+            }
+
+            o = i.next(); //"obj"
+            
+            while (!((String) o).equalsIgnoreCase("endobjectivevar")){
+                int objVar = _camdp._context.buildCanonicalXADD((ArrayList) i.next());
+                _objVar.addAll(_camdp._context.collectVars(objVar));
+                o = i.next();
+            }
+        }
+
         // Set up equality constraints for the LP
         while (true) {
             o = push_back == null ? i.next() : push_back;

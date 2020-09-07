@@ -15,18 +15,22 @@ x2e ([xo1 <= ao1 * 3000]
 	    ([x12 <= a12 * 1000]
                 ([x1e <= a1e * 1500]
                     ([x2e <= a2e * 1700]
-                        ([x1e + x2e])
-                        ([-10000])
+                        ([xo1 + xo2])
+                        ([-Infinity])
 		    )
-		    ([-10000])
+		    ([-Infinity])
                 )
-                ([-10000])
+                ([-Infinity])
             )
-            ([-10000])
+            ([-Infinity])
         )
-        ([-10000])
+        ([-Infinity])
     )
 endtransition
+
+objectivevar
+obj ([xo1 + xo2])
+endobjectivevar
 
 eqconstraints
 x1e ([xo1 - x12])
