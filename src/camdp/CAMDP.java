@@ -273,6 +273,7 @@ public class CAMDP {
         XADDTNode node = (XADDTNode) _context.getNode(node_id);
         HashSet<String> exprVars = new HashSet<String>();
         node._expr.collectVars(exprVars);
+        _context._inequalityToEquality = true;
 
         for (String var: subs.keySet()) {
             if (exprVars.contains(var)) {
@@ -280,6 +281,7 @@ public class CAMDP {
             }
         }
 
+        _context._inequalityToEquality = false;
         node_id = _context.reduceLP(_context.reduceLinearize(node_id));
         return node_id;
     }
@@ -297,6 +299,8 @@ public class CAMDP {
         _nCurIter = 0;
         if (max_iter < 0)
             max_iter = _nMaxIter;
+        else
+            _nMaxIter = max_iter;
 
         int totalTime = 0;
         long[] time = new long[max_iter + 1];
@@ -621,11 +625,14 @@ public class CAMDP {
     }
     public void doDisplay(int xadd_id, String label) {
         exportXADD(xadd_id, label); // Exports DAG, can read in later and view using XADDViewer
-        if (DISPLAY_V)
+        // Boolean toPlot = (_nCurIter == _nMaxIter);
+        // Boolean toPlot = true;
+        Boolean toPlot = ((_nCurIter % 5) == 0);
+        if (DISPLAY_V && toPlot)
             displayGraph(xadd_id, label);
-        if (DISPLAY_2D)
+        if (DISPLAY_2D && toPlot)
             display2D(xadd_id, label);
-        if (DISPLAY_3D)
+        if (DISPLAY_3D && toPlot)
             display3D(xadd_id, label);
     }
 
