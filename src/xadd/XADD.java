@@ -140,6 +140,7 @@ public class XADD {
     public int NEG_INF = -1;
     public int NAN = -1;
     public String _gVar;
+    public boolean _inequalityToEquality = false;
 
     // Associated LP for transition of an MDP
     public int _lp = -1;
@@ -964,7 +965,7 @@ public class XADD {
                 return POS_INF;
             else if (op == MIN)
                 return a2;
-        } else if (a1 == NEG_INF) {
+        } else if (a1 == NEG_INF && a2 != NEG_INF) {
             // -inf op a2
             if (op == SUM || op == MINUS || op == MIN)
                 return NEG_INF;
@@ -978,7 +979,7 @@ public class XADD {
                 return NEG_INF;
             else if (op == MIN)
                     return a1;
-        } else if (a2 == NEG_INF) {
+        } else if (a2 == NEG_INF && a1 != NEG_INF) {
                 // -inf op a2
             if (op == SUM || op == MIN)
                     return NEG_INF;
@@ -2365,10 +2366,10 @@ public class XADD {
             Integer low = getArg(inode._low, v);
             Integer high = getArg(inode._high, v);
             
-            if (low == null) {
-                low = ZERO;
-            }
-            if (high == null) high = ZERO;
+            // if (low == null) {
+            //     low = ZERO;
+            // }
+            // if (high == null) high = ZERO;
 
             int var = inode._var;
             Decision d = _alOrder.get(var);
@@ -2384,6 +2385,7 @@ public class XADD {
     // is done is passed so that we can sequentially substitute from the outermost variable annotation.
     public HashMap<String, Integer> argMax(ArrayList<String> varOrder){
         int numVar = varOrder.size();
+        _inequalityToEquality = true;
 
         for (int i=numVar-2; i>=0; i--){
             String curr_var = varOrder.get(i);
@@ -2391,13 +2393,20 @@ public class XADD {
 
             // Substitute all previous annotations sequentially to the current annotation
             // That is, for i th variable, substitute in i+1, ..., numVar-1 variables
-            for (int j=i+1; j<=numVar-1; j++){
+            // for (int j=i+1; j<=numVar-1; j++){
+            //     String outer_var = varOrder.get(j);
+            //     Integer outer_anno = _hmVar2Anno.get(outer_var);
+            //     curr_anno = reduceProcessXADDLeaf(outer_anno, new DeltaFunctionSubstitution(outer_var, curr_anno), true);
+            // }
+            for (int j=numVar-1; j>=i+1; j--){
                 String outer_var = varOrder.get(j);
                 Integer outer_anno = _hmVar2Anno.get(outer_var);
                 curr_anno = reduceProcessXADDLeaf(outer_anno, new DeltaFunctionSubstitution(outer_var, curr_anno), true);
             }
             _hmVar2Anno.put(curr_var, reduceLP(reduceLinearize(curr_anno)));
         }
+
+        _inequalityToEquality = false;
         return _hmVar2Anno;
     }
     ////////////////////////////////////////////////////
@@ -3317,6 +3326,13 @@ public class XADD {
                 double dval_lhs = ((DoubleExpr) ((ExprDec) d)._expr._lhs)._dConstVal;
                 double dval_rhs = ((DoubleExpr) ((ExprDec) d)._expr._rhs)._dConstVal;
                 TautDec tdec = null;
+
+                if (_inequalityToEquality) {
+                    if (((ExprDec) d)._expr._type == CompOperation.GT) {
+                        ((ExprDec) d)._expr._type = CompOperation.GT_EQ;
+                    }
+                }
+
                 switch (((ExprDec) d)._expr._type) {
                     case EQ:
                         tdec = new TautDec(dval_lhs == dval_rhs);

@@ -12,13 +12,13 @@ avariables ()
 transitionlp
 x2e ([xo1 <= ao1 * 3000]
         ([xo2 <= ao2 * 2000]
-	    ([x12 <= a12 * 1000]
+	        ([x12 <= a12 * 1000]
                 ([x1e <= a1e * 1500]
                     ([x2e <= a2e * 1700]
                         ([xo1 + xo2])
                         ([-Infinity])
-		    )
-		    ([-Infinity])
+                    )
+                    ([-Infinity])
                 )
                 ([-Infinity])
             )
