@@ -1157,7 +1157,7 @@ public class XADD {
         }
 
         System.out.println("unhandled case of same evaluations.");
-        return node1;
+        return node2;
     }
 
     public int depth(int node_id) {

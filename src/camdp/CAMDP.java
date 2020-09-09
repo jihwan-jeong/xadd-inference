@@ -270,9 +270,9 @@ public class CAMDP {
          * vars inside node_id expression are replaced with xadd provided in subs.
          */
 
-        XADDTNode node = (XADDTNode) _context.getNode(node_id);
+        XADDNode node = _context.getNode(node_id);
         HashSet<String> exprVars = new HashSet<String>();
-        node._expr.collectVars(exprVars);
+        node.collectVars(exprVars);
         _context._inequalityToEquality = true;
 
         for (String var: subs.keySet()) {
@@ -627,7 +627,7 @@ public class CAMDP {
         exportXADD(xadd_id, label); // Exports DAG, can read in later and view using XADDViewer
         // Boolean toPlot = (_nCurIter == _nMaxIter);
         // Boolean toPlot = true;
-        Boolean toPlot = ((_nCurIter % 5) == 0);
+        Boolean toPlot = ((_nCurIter % 5) == 0 || (_nCurIter == 1));
         if (DISPLAY_V && toPlot)
             displayGraph(xadd_id, label);
         if (DISPLAY_2D && toPlot)
