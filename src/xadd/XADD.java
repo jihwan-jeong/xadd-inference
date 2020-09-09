@@ -18,6 +18,7 @@ import java.io.PrintStream;
 import java.util.*;
 
 import util.IntPair;
+import util.IntQuintuple;
 import util.IntTriple;
 import camdp.HierarchicalParser;
 import xadd.ExprLib.ArithExpr;
@@ -126,7 +127,8 @@ public class XADD {
     public HashMap<Integer, Integer> _hmReduceCanonCache = new HashMap<Integer, Integer>();
     public HashMap<IntPair, Integer> _hmReduceAnnotateCache = new HashMap<IntPair, Integer>();
     public HashMap<IntTriple, Integer> _hmApplyCache = new HashMap<IntTriple, Integer>();
-    public HashMap<String, HashMap<IntTriple, Integer>> _hmApplyCaches = new HashMap<String, HashMap<IntTriple, Integer>>();
+    public HashMap<String, HashMap<IntQuintuple, Integer>> _hmApplyCaches = new HashMap<String, HashMap<IntQuintuple, Integer>>();
+    // public HashMap<String, HashMap<IntTriple, Integer>> _hmApplyCaches = new HashMap<String, HashMap<IntTriple, Integer>>();
     public HashMap<XADDINode, HashSet<String>> _hmINode2Vars = new HashMap<XADDINode, HashSet<String>>();
 
     // Flush
@@ -841,6 +843,7 @@ public class XADD {
     }
 
     public IntTriple _tempApplyKey = new IntTriple(-1, -1, -1);
+    public IntQuintuple _tempApplyKey2 = new IntQuintuple(-1, -1, -1, -1, -1);
 
     public int apply(int a1, int a2, int op, int... substitutions) {
         int ret = applyInt(a1, a2, op, substitutions);
@@ -849,11 +852,11 @@ public class XADD {
         return ret;
     }
 
-    private HashMap<IntTriple, Integer> getApplyCache(){
+    private HashMap<IntQuintuple, Integer> getApplyCache(){
         if (_hmApplyCaches.containsKey(_gVar)){
             return _hmApplyCaches.get(_gVar);
         } else {
-            HashMap<IntTriple, Integer> hm = new HashMap<IntTriple, Integer>();
+            HashMap<IntQuintuple, Integer> hm = new HashMap<IntQuintuple, Integer>();
             _hmApplyCaches.put(_gVar, hm);
             return hm;
         }
@@ -862,12 +865,19 @@ public class XADD {
 
         // adding divBranch, -1 if no divison, 1 if branch false, 2 if branch
         // true
-        _tempApplyKey.set(a1, a2, op);
-
+        // _tempApplyKey.set(a1, a2, op);
+        Integer ret;
         // Integer ret = _hmApplyCache.get(_tempApplyKey);
         // choose applyCache based on if substitutions are provided
-        HashMap<IntTriple, Integer> applyCache = (substitutions.length == 0) ? _hmApplyCache : getApplyCache();
-        Integer ret = applyCache.get(_tempApplyKey);
+        // HashMap<IntTriple, Integer> applyCache = (substitutions.length == 0) ? _hmApplyCache : getApplyCache();
+        // Integer ret = applyCache.get(_tempApplyKey);
+        if (substitutions.length == 0) {
+            _tempApplyKey.set(a1, a2, op);
+            ret = _hmApplyCache.get(_tempApplyKey);
+        } else {
+            _tempApplyKey2.set(a1, a2, op, substitutions[0], substitutions[1]);
+            ret = getApplyCache().get(_tempApplyKey2);
+        }
 
         if (ret != null) {
             return ret;
@@ -929,7 +939,13 @@ public class XADD {
 //        }
 
         // _hmApplyCache.put(new IntTriple(a1, a2, op), ret);
-        applyCache.put(new IntTriple(a1, a2, op), ret);
+        // applyCache.put(new IntTriple(a1, a2, op), ret);
+        if (substitutions.length == 0) {
+            _hmApplyCache.put(new IntTriple(a1, a2, op), ret);
+        } else {
+            getApplyCache().put(new IntQuintuple(a1, a2, op, substitutions[0], substitutions[1]), ret);
+        }
+
         return ret;
     }
 
@@ -1656,7 +1672,7 @@ public class XADD {
         _hmReduceCanonCache.clear();
         _hmReduceLeafOpCache.clear();
         _hmApplyCache.clear();
-        for (HashMap<IntTriple, Integer> applyCache: _hmApplyCaches.values()){
+        for (HashMap<IntQuintuple, Integer> applyCache: _hmApplyCaches.values()){
             applyCache.clear();
         }
         _hmINode2Vars.clear();
@@ -1882,7 +1898,7 @@ public class XADD {
     // Quick cache snapshot
     public void showCacheSize() {
         System.out.println("APPLY CACHE:    " + _hmApplyCache.size());
-        for (HashMap<IntTriple, Integer> applyCache: _hmApplyCaches.values()) {
+        for (HashMap<IntQuintuple, Integer> applyCache: _hmApplyCaches.values()) {
             System.out.println("VAR APPLY CACHES:   " + applyCache.size());
         }
         System.out.println("REDUCE CACHE:   " + _hmReduceCache.size());
