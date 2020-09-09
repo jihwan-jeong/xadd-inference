@@ -1655,7 +1655,7 @@ public class XADD {
         _hmReduceCanonCache.clear();
         _hmReduceLeafOpCache.clear();
         _hmApplyCache.clear();
-        for (HashMap<IntTriple, Integer> applyCache: _hmApplyCaches.values()) {
+        for (HashMap<IntQuintuple, Integer> applyCache: _hmApplyCaches.values()) {
             applyCache.clear();
         }
         _hmINode2Vars.clear();
