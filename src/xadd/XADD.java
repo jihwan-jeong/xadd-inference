@@ -1157,7 +1157,8 @@ public class XADD {
         }
 
         System.out.println("unhandled case of same evaluations.");
-        return node2;
+        // changed to node2 for reservoir. for traffic back to default of node1.
+        return node1;
     }
 
     public int depth(int node_id) {
