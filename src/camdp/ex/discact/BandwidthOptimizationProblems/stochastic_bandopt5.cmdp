@@ -38,80 +38,108 @@ x2e ([xo2 + x12])
 endeqconstraints
 
 action path1
-        b' (b ([0.7])([0.7]))
+        b' (b ([0.7])([0.3]))
         d' ([d > (xo1+xo2)] 
                 (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
                 (b ([2500])([1200]))
         )
-reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
             - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
-            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * (xo1 + xo2)])
+)
 endaction
 
 action path2
-        b' (b ([0.7])([0.7]))
+        b' (b ([0.7])([0.3]))
         d' ([d > (xo1+xo2)] 
                 (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
                 (b ([2500])([1200]))
         )
-reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
             - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
-            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * (xo1 + xo2)])
+)
 endaction
 
 action path3
-        b' (b ([0.7])([0.7]))
+        b' (b ([0.7])([0.3]))
         d' ([d > (xo1+xo2)] 
                 (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
                 (b ([2500])([1200]))
         )
-reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
             - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
-            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * (xo1 + xo2)])
+)
 endaction
 
 action path12
-        b' (b ([0.7])([0.7]))
+        b' (b ([0.7])([0.3]))
         d' ([d > (xo1+xo2)] 
                 (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
                 (b ([2500])([1200]))
         )
-reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
             - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
-            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * (xo1 + xo2)])
+)
 endaction
 
 action path13
-        b' (b ([0.7])([0.7]))
+        b' (b ([0.7])([0.3]))
         d' ([d > (xo1+xo2)] 
                 (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
                 (b ([2500])([1200]))
         )
-reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
             - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
-            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * (xo1 + xo2)])
+)
 endaction
 
 action path23
-        b' (b ([0.7])([0.7]))
+        b' (b ([0.7])([0.3]))
         d' ([d > (xo1+xo2)] 
                 (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
                 (b ([2500])([1200]))
         )
-reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
             - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
-            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * (xo1 + xo2)])
+)
 endaction
 
 action path123
-        b' (b ([0.7])([0.7]))
+        b' (b ([0.7])([0.3]))
         d' ([d > (xo1+xo2)] 
                 (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
                 (b ([2500])([1200]))
         )
-reward ( [rev * (x1e + x2e) - 2 * (d - (x1e + x2e)) 
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
             - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) 
-            - (co1*xo1+co2*xo2+c12*x12+c1e*x1e+c2e*x2e)])
+            - (co1*ao1+co2*ao2+c12*a12+c1e*a1e+c2e*a2e) * (xo1 + xo2)])
+)
 endaction
 
 discount 0.95

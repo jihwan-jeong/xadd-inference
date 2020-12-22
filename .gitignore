@@ -2,5 +2,5 @@
 src/camdp/ex/discact/results/
 src/camdp/ex/discact/BandwidthOptimizationProblems/results/
 src/camdp/ex/contact/results/
-tmp_viewer_file.dot
-
+*.dot
+src/camdp/ex/optimizedTransitions/results/
