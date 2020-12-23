@@ -32,6 +32,7 @@ public class ComputeQFunction {
 
         // Prime the value function
         int q = _context.substitute(vfun, _camdp._hmPrimeSubs);
+        // q = _context.reduceLP(q);
         _camdp._logStream.println("- Primed value function:\n" + _context.getString(q));
 
         // Discount

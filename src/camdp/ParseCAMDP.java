@@ -3,7 +3,10 @@ package camdp;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
+import java.io.*;
 
 import xadd.XADD;
 import xadd.ExprLib.ArithExpr;
@@ -25,6 +28,8 @@ public class ParseCAMDP {
     ArrayList<String> AVars = new ArrayList<String>();
     public HashMap<String, Double> _minCVal = new HashMap<String, Double>();
     public HashMap<String, Double> _maxCVal = new HashMap<String, Double>();
+    public HashMap<String, ArrayList> _lpObj = new HashMap<String, ArrayList>();
+    public HashSet<String> _objVar = new HashSet<String>();
     ArrayList<Double> contParam = new ArrayList<Double>(2);
     //	ArrayList<Integer> constraints = new ArrayList<Integer>();
     BigDecimal discount;
@@ -104,14 +109,8 @@ public class ParseCAMDP {
             _camdp._context.getVarIndex(_camdp._context.new BoolDec(var + "'"), true);
         }
 
-        o = i.next();
-        if ((o instanceof String) && ((String) o).equalsIgnoreCase("otvariables")) {
-            o = i.next();
-            _camdp._context.otvariables = (ArrayList<String>) ((ArrayList) o).clone();
-            o = i.next();
-        }
-
         // Noise vars -- defined after state variables if present
+        o = i.next();
         if ((o instanceof String) && ((String) o).equalsIgnoreCase("nvariables")) {
             o = i.next();
             NoiseVars = (ArrayList<String>) ((ArrayList) o).clone();
@@ -207,7 +206,8 @@ public class ParseCAMDP {
             NSCVars.add(s + "'");
 
         // Set up transition-lp
-        while (true) {
+        int k = 0;
+        while (k < 2) {
             o = push_back == null ? i.next() : push_back;
             push_back = null;
             if (!(o instanceof String) || !((String) o).equalsIgnoreCase("transitionlp")) {
@@ -217,7 +217,32 @@ public class ParseCAMDP {
             o = i.next();
             while (!((String) o).equalsIgnoreCase("endtransition")) {
                 Object o2 = i.next();
-                _camdp._context._lp = _camdp._context.buildCanonicalXADD((ArrayList) o2);
+                if (k == 0){
+                    _camdp._context._lp0 = _camdp._context.buildCanonicalXADD((ArrayList) o2);
+                }
+                else {
+                    _camdp._context._lp1 = _camdp._context.buildCanonicalXADD((ArrayList) o2);
+                }
+                o = i.next();
+            }
+            k++;
+        } // endtransition
+
+        // Get variables contained in the objective 
+        while (true) {
+            o = push_back == null ? i.next() : push_back;
+            push_back = null;
+
+            if (!(o instanceof String) || !((String) o).equalsIgnoreCase("objectivevar")){
+                push_back = o;
+                break;
+            }
+
+            o = i.next(); //"obj"
+            
+            while (!((String) o).equalsIgnoreCase("endobjectivevar")){
+                int objVar = _camdp._context.buildCanonicalXADD((ArrayList) i.next());
+                _objVar.addAll(_camdp._context.collectVars(objVar));
                 o = i.next();
             }
         }

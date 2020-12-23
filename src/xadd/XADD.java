@@ -144,9 +144,9 @@ public class XADD {
     public boolean _inequalityToEquality = false;
 
     // Associated LP for transition of an MDP
-    public int _lp = -1;
-    // Variables for optimized transitions, over which LP is maximized
-    public ArrayList<String> otvariables;
+    public int _lp0 = -1;
+    public int _lp1 = -1;
+    private String _currOptVar;
 
     /////////////////////////////////////////////////////////
     //                   XADD Methods                      //
@@ -940,6 +940,10 @@ public class XADD {
             getApplyCache().put(new IntQuintuple(a1, a2, op, substitutions[0], substitutions[1]), ret);
         }
         return ret;
+    }
+
+    public void setCurrOptVar(String var){
+        _currOptVar = var;
     }
 
     // Computes a terminal node value if possible
@@ -2352,15 +2356,15 @@ public class XADD {
 
     // Get annotation XADD by recursion. For each path from the root to a leaf, the leaf value 
     // is replaced by the annotation. 
-    public Integer getArg(Integer n) {
+    public Integer getArg(Integer n, String... v) {
         XADDNode node = getNode(n);
 
         if (node instanceof XADDTNode) {
             return (Integer) ((XADDTNode) node)._annotate;
         } else {
             XADDINode inode = (XADDINode) node;
-            Integer low = getArg(inode._low);
-            Integer high = getArg(inode._high);
+            Integer low = getArg(inode._low, v);
+            Integer high = getArg(inode._high, v);
 
             int var = inode._var;
             Decision d = _alOrder.get(var);
@@ -2384,7 +2388,7 @@ public class XADD {
 
             // Substitute all previous annotations sequentially to the current annotation
             // That is, for i th variable, substitute in i+1, ..., numVar-1 variables
-            for (int j=i+1; j<=numVar-1; j++){
+            for (int j=numVar-1; j>=i+1; j--){
                 String outer_var = varOrder.get(j);
                 Integer outer_anno = _hmVar2Anno.get(outer_var);
                 curr_anno = reduceProcessXADDLeaf(outer_anno, new DeltaFunctionSubstitution(outer_var, curr_anno), true);
@@ -3039,6 +3043,7 @@ public class XADD {
             // Check cache
             HashSet<String> vars2 = _hmINode2Vars.get(this);
             if (vars2 != null) {
+                vars2.remove("a");
                 vars.addAll(vars2);
                 return;
             }
