@@ -307,8 +307,26 @@ public class CAMDP {
 
         int dd_obj = dd;
         // Compute the argmax xadd of all variables
-        _context.argMax(varOrder);
-    
+        HashMap<String, Integer> argmax = _context.argMax(varOrder);
+        
+        // Print out argmax solution for each action
+        double[][] actionLink = new double[][] {{1, 0, 0, 1, 0}, {1, 0, 1, 0, 1}, {0, 1, 0, 0, 1}, 
+                                          {1, 0, 1, 1, 1}, {1, 1, 0, 1, 1}, {1, 1, 1, 0, 1}, {1, 1, 1, 1, 1}};
+        String[] links = new String[] {"ao1", "ao2", "a12", "a1e", "a2e"};
+        String[] actionString = new String[] {"path1", "path2", "path3", "path12", "path13", "path23", "path123"};
+        
+        int k = 0;
+        for (double[] act : actionLink){    
+            System.out.println(String.format("Action: %s", actionString[k]));
+            for (String v : varOrder){
+                Integer anno = _context._hmVar2Anno.get(v);
+                
+                Integer anno_evaluated = substituteForEvaluation(anno, links, act);
+                System.out.println(String.format("\tvar: %s\tvalue: %s", v, _context.getString(anno_evaluated)));
+            }
+            k++;
+        }
+
         // Now, for each action, modify argmax XADD of x variables and substitute into transition & reward XADDs.
         // Reward and transition are referred by _reward and _hmVar2DD, respectively.
         for (Map.Entry<String, CAction> aname2CAction : _hmName2Action.entrySet()){
@@ -323,7 +341,7 @@ public class CAMDP {
                 if (a_1s.contains(aVar)){
                     aReplace.put(aVar, new DoubleExpr(1.0));
                 } else {
-                    aReplace.put(aVar, new DoubleExpr(0.000001));
+                    aReplace.put(aVar, new DoubleExpr(0.0));
                 }
             }
             
@@ -370,6 +388,18 @@ public class CAMDP {
             act._hmVar2DD = modifiedTrans;
         }
     }
+
+    private int substituteForEvaluation(int xadd, String[] _vars, double[] _vals){
+        HashMap<String, ArithExpr> subs = new HashMap<String, ArithExpr>();
+        int i = 0;
+        for (String v : _vars){
+            subs.put(v, new DoubleExpr(_vals[i]));
+            i++;
+        }
+        xadd = _context.substitute(xadd, subs);
+        return xadd;
+    }
+
     ////////////////////////////////////////////////////////////////////////////
     // Main value iteration routine
     ////////////////////////////////////////////////////////////////////////////
