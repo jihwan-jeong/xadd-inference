@@ -147,6 +147,7 @@ public class XADD {
     public int _lp0 = -1;
     public int _lp1 = -1;
     private String _currOptVar;
+    public String _domain;
 
     /////////////////////////////////////////////////////////
     //                   XADD Methods                      //
@@ -309,6 +310,30 @@ public class XADD {
             }
             return index;
         }
+    }
+
+    // Enforce creating Decision "vars"
+    public int getVarIndex(Decision d, boolean create, boolean enforce) {
+
+        if (USE_CANONICAL_NODES) {
+            //System.out.println(">> Before canonical: " + d);
+            d = d.makeCanonical();
+            //System.out.println(">> After canonical: " + d);
+            if (d instanceof ExprDec && !((ExprDec) d)._expr._rhs.equals(ExprLib.ZERO)) {
+                System.err.println("Expected RHS 0 in canonical ExprDec, but got: " + d);
+                System.exit(1);
+            }
+        }
+
+        int index;
+        _alOrder.add(d);
+        index = _alOrder.size() - 1;
+
+        if (d instanceof BoolDec) {
+            if (_hsBooleanVars.add(((BoolDec)d)._sVarName)) // false if already in set
+                _alBooleanVars.add(((BoolDec)d)._sVarName);
+        }
+        return index;
     }
 
     //Create Nodes
@@ -1112,9 +1137,9 @@ public class XADD {
                 node1 = getTermNode(xa1._expr, substitutions[0]);
                 node2 = getTermNode(xa2._expr, substitutions[1]);
 
-                if (a1 == a2 && ((op == MAX) || (op == MIN))) {
-                    return tiebreakBetweenBounds(node1, node2, substitutions);
-                }
+                // if (a1 == a2 && ((op == MAX) || (op == MIN))) {
+                //     return tiebreakBetweenBounds(node1, node2, substitutions);
+                // }
             } else {
                 node1 = getTermNode(xa1._expr, xa1._annotate);
                 node2 = getTermNode(xa2._expr, xa2._annotate);
@@ -2230,8 +2255,8 @@ public class XADD {
             //     e.g., could an unreachable constant prune out another reachable node?
             //     (don't think this can happen... still in context of unreachable constraints)
 
-            upper_bound = removeRepetions(upper_bound);
-            lower_bound = removeRepetions(lower_bound);
+            upper_bound = removeRepetitions(upper_bound);
+            lower_bound = removeRepetitions(lower_bound);
 
             Integer ub_count = upper_bound.size();
             Integer lb_count = lower_bound.size(); 
@@ -2325,7 +2350,7 @@ public class XADD {
         }
     }
 
-    private ArrayList<ArithExpr> removeRepetions (ArrayList<ArithExpr> bounds) {
+    private ArrayList<ArithExpr> removeRepetitions (ArrayList<ArithExpr> bounds) {
         /**
          * Bounds are a collection of DoubleExpr and OperExpr.
          * This method removes duplicates of DoubleExpr bounds.
@@ -3043,7 +3068,8 @@ public class XADD {
             // Check cache
             HashSet<String> vars2 = _hmINode2Vars.get(this);
             if (vars2 != null) {
-                vars2.remove("a");
+                // vars2.removeAll(opt)
+                // vars2.remove("a");vars2.remove("q1");vars2.remove("q2");vars2.remove("q1r");vars2.remove("q2r");
                 vars.addAll(vars2);
                 return;
             }

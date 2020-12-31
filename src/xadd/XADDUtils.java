@@ -427,10 +427,15 @@ public class XADDUtils {
             ps = new DevNullPrintStream();
         }
 
-        // substitute a value for q1
-        HashMap<String, ArithExpr> subs = new HashMap<String, ArithExpr>();
-        subs.put("q1", new DoubleExpr(220));
-        xadd = context.substitute(xadd, subs);
+        // substitute a value for q1 (traffic)
+        if (context._domain.equalsIgnoreCase("traffic")){
+            HashMap<String, ArithExpr> subs = new HashMap<String, ArithExpr>();
+            // subs.put("q1", new DoubleExpr(220));
+            // subs.put("q4", new DoubleExpr(100));
+            subs.put("q2", new DoubleExpr(120));
+            subs.put("q4", new DoubleExpr(100));
+            xadd = context.substitute(xadd, subs);
+        }
 
         static_dvars = new HashMap<String, Double>(static_dvars);
         float[][] xArr = new float[alY.size()][alX.size()];
@@ -489,8 +494,10 @@ public class XADDUtils {
         ArraySurfaceModel sm = new ArraySurfaceModel();
         sm.setValues(xArr[0][0], xArr[alY.size() - 1][alX.size() - 1],
                 yArr[0][0], yArr[alY.size() - 1][alX.size() - 1], alX.size(), zArr, null);
-        sm.setZMin(370);
-        sm.setZMax(520);
+        float zmin = min_z - (float) 0.02 * (max_z -min_z);
+        float zmax = max_z + (float) 0.02 * (max_z -min_z);
+        sm.setZMin(zmin);
+        sm.setZMax(zmax);
         sm.setDisplayXY(true);
         sm.setDisplayZ(true);
         sm.setDisplayGrids(true);

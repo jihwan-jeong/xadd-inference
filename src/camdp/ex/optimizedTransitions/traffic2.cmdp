@@ -1,0 +1,57 @@
+cvariables ( q1  q2  q3  q4  dq2 dq3 )
+min-values ( 0   0   0   0   0   0   )
+max-values ( 100 120 100 100 100 100 ) 
+bvariables ()
+nvariables()
+icvariables()
+min-values ()
+max-values ()
+ibvariables()
+avariables()
+lpvariables(dq2 dq3)
+
+transitionlp
+lp ([dq2 + dq3 < 20]
+        ([dq2 < 120 - q2]
+                ([dq3 < 100 - q3]
+                        ([dq2 + dq3 < q1]
+                                ([dq2 + dq3])
+                                ([-infinity])
+                        )
+                        ([-Infinity])
+                )
+                ([-Infinity])
+        )
+        ([-Infinity])
+)
+endtransition
+
+objective
+obj ([dq2 + dq3])
+endobjective
+
+action a1
+        q1' ( [q1 - dq2 - dq3] )
+        q2' ( [q2 + dq2] )
+        q3' ( [q3 + dq3] )
+        q4' ( [q4] )
+reward ([dq2 + dq3])
+endaction
+
+action a0
+        q1' ( [q1] )
+        q2' ( [q2] )
+        q3' ( [q3] )
+        q4' ([q4 - 15 > 0]
+                ([q4 - 15])
+                ([0])
+        )
+reward ([q4 < 15]
+                ([q4])
+                ([15])
+)
+endaction
+
+
+discount 1.000
+iterations 200
