@@ -1,63 +1,77 @@
-cvariables ( l1   l2   q1  q2 )
-min-values ( 0    0    0   0  )
-max-values ( 3000 1500 250 300) 
+cvariables ( l1   l2)
+min-values ( 1000 700)
+max-values ( 3000 2000) 
 bvariables ( r )
-otvariables( q1 q2 )
 nvariables()
-icvariables()
-min-values ()
-max-values ()
+icvariables(q1 q2 q1r q2r a)
+min-values (0 0 0 0 0)
+max-values (250 300 250 300 1)
 ibvariables()
 avariables()
+lpvariables (q1 q2 q1r q2r)
 
 transitionlp
 q2 ([q2 < 300]
-        ([q1 < a*250]
-                (r
-                        ([0.98*l1 - q1 + 200 < 3000]
-                                ([0.98*l1 - q1 + 200 > 1000]
-                                        ([0.98*l2 + q1 - q2 + 200 < 1500]
-                                                ([0.98*l2 + q1 - q2 + 200 > 700]
-                                                        ([q2])
-                                                        ([-Infinity])
-                                                )
+        ([q1 < a * 250]
+                ([0.98*l1 - q1 < 3000]
+                        ([0.98*l1 - q1 > 1000]
+                                ([0.98*l2 + q1 - q2 < 2000]
+                                        ([0.98*l2 + q1 - q2 > 700]
+                                                ([q2])
                                                 ([-Infinity])
                                         )
-                                        ([-Infinity])
-                                )
                                 ([-Infinity])
-                        )
-                        ([0.98*l1 - q1 < 3000]
-                                ([0.98*l1 - q1 > 1000]
-                                        ([0.98*l2 + q1 - q2 < 1500]
-                                                ([0.98*l2 + q1 - q2 > 700]
-                                                        ([q2])
-                                                        ([-Infinity])
-                                                )
-                                                ([-Infinity])
-                                        )
-                                        ([-Infinity])
                                 )
-                                ([-Infinity])
-                        )
-                )
+                        ([-Infinity])
+                        )       
                 ([-Infinity])
-        )
+                )
         ([-Infinity])
+        )
+([-Infinity])
 )
 endtransition
+
+transitionlp
+q2r ([q2r < 300]
+        ([q1r < a * 250]
+                ([0.98*l1 - q1r + 200 < 3000]
+                        ([0.98*l1 - q1r + 200 > 1000]
+                                ([0.98*l2 + q1r - q2r + 200 < 2000]
+                                        ([0.98*l2 + q1r - q2r + 200 > 700]
+                                                ([q2r])
+                                                ([-Infinity])
+                                        )
+                                ([-Infinity])
+                                )
+                        ([-Infinity])
+                        )       
+                ([-Infinity])
+                )
+        ([-Infinity])
+        )
+([-Infinity])
+)
+endtransition
+
+objective
+obj ([q2 + q2r])
+endobjective
 
 action a1
         r' (r ([0.4])([0.4]))
         l1' ( r 
-                ([0.98*l1 - q1 + 200])
+                ([0.98*l1 - q1r + 200])
                 ([0.98*l1 - q1]) 
         )
         l2' ( r 
-                ([0.98*l2 + q1 - q2 + 200])
+                ([0.98*l2 + q1r - q2r + 200])
                 ([0.98*l2 + q1 - q2]) 
         )
-reward ([q2])
+reward ( r
+                ([q2r])
+                ([q2])
+)
 endaction
 
 
@@ -68,10 +82,13 @@ action a0
                 ([0.98*l1]) 
         )
         l2' ( r 
-                ([0.98*l2 - q2 + 200])
+                ([0.98*l2 - q2r + 200])
                 ([0.98*l2 - q2]) 
         )
-reward ([q2])
+reward ( r
+                ([q2r])
+                ([q2])
+)
 endaction
 
 
