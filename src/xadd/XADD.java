@@ -18,6 +18,7 @@ import java.io.PrintStream;
 import java.util.*;
 
 import util.IntPair;
+import util.IntQuintuple;
 import util.IntTriple;
 import camdp.HierarchicalParser;
 import xadd.ExprLib.ArithExpr;
@@ -126,7 +127,7 @@ public class XADD {
     public HashMap<Integer, Integer> _hmReduceCanonCache = new HashMap<Integer, Integer>();
     public HashMap<IntPair, Integer> _hmReduceAnnotateCache = new HashMap<IntPair, Integer>();
     public HashMap<IntTriple, Integer> _hmApplyCache = new HashMap<IntTriple, Integer>();
-    public HashMap<IntTriple, Integer> _hmApplyCache2 = new HashMap<IntTriple, Integer>();
+    public HashMap<String, HashMap<IntQuintuple, Integer>> _hmApplyCaches = new HashMap<String, HashMap<IntQuintuple, Integer>>();
     public HashMap<XADDINode, HashSet<String>> _hmINode2Vars = new HashMap<XADDINode, HashSet<String>>();
 
     // Flush
@@ -139,9 +140,13 @@ public class XADD {
     public int POS_INF = -1;
     public int NEG_INF = -1;
     public int NAN = -1;
+    public String _gVar;
+    public boolean _inequalityToEquality = false;
 
     // Associated LP for transition of an MDP
     public int _lp = -1;
+    // Variables for optimized transitions, over which LP is maximized
+    public ArrayList<String> otvariables;
 
     /////////////////////////////////////////////////////////
     //                   XADD Methods                      //
@@ -833,6 +838,7 @@ public class XADD {
     }
 
     public IntTriple _tempApplyKey = new IntTriple(-1, -1, -1);
+    public IntQuintuple _tempApplyKey2 = new IntQuintuple(-1, -1, -1, -1, -1);
 
     public int apply(int a1, int a2, int op, int... substitutions) {
         int ret = applyInt(a1, a2, op, substitutions);
@@ -841,16 +847,31 @@ public class XADD {
         return ret;
     }
 
+    private HashMap<IntQuintuple, Integer> getApplyCache(){
+        if (_hmApplyCaches.containsKey(_gVar)) {
+            return _hmApplyCaches.get(_gVar);
+        } else {
+            HashMap<IntQuintuple, Integer> hm = new HashMap<IntQuintuple, Integer>();
+            _hmApplyCaches.put(_gVar, hm);
+            return hm;
+        } 
+    }
+
     public int applyInt(int a1, int a2, int op, int... substitutions) {
 
         // adding divBranch, -1 if no divison, 1 if branch false, 2 if branch
         // true
-        _tempApplyKey.set(a1, a2, op);
-
+        // _tempApplyKey.set(a1, a2, op);
         // Integer ret = _hmApplyCache.get(_tempApplyKey);
-        // choose applyCache based on if substitutions are provided
-        HashMap<IntTriple, Integer> applyCache = (substitutions.length == 0) ? _hmApplyCache : _hmApplyCache2;
-        Integer ret = applyCache.get(_tempApplyKey);
+
+        Integer ret;
+        if (substitutions.length == 0) {
+            _tempApplyKey.set(a1, a2, op);
+            ret = _hmApplyCache.get(_tempApplyKey);
+        } else {
+            _tempApplyKey2.set(a1, a2, op, substitutions[0], substitutions[1]);
+            ret = getApplyCache().get(_tempApplyKey2);
+        }
 
         if (ret != null) {
             return ret;
@@ -912,7 +933,12 @@ public class XADD {
 //        }
 
         // _hmApplyCache.put(new IntTriple(a1, a2, op), ret);
-        applyCache.put(new IntTriple(a1, a2, op), ret);
+
+        if (substitutions.length == 0) {
+            _hmApplyCache.put(new IntTriple(a1, a2, op), ret);
+        } else {
+            getApplyCache().put(new IntQuintuple(a1, a2, op, substitutions[0], substitutions[1]), ret);
+        }
         return ret;
     }
 
@@ -945,7 +971,7 @@ public class XADD {
                 return POS_INF;
             else if (op == MIN)
                 return a2;
-        } else if (a1 == NEG_INF) {
+        } else if (a1 == NEG_INF && a2 != NEG_INF) {
             // -inf op a2
             if (op == SUM || op == MINUS || op == MIN)
                 return NEG_INF;
@@ -959,7 +985,7 @@ public class XADD {
                 return NEG_INF;
             else if (op == MIN)
                     return a1;
-        } else if (a2 == NEG_INF) {
+        } else if (a2 == NEG_INF && a1 != NEG_INF) {
                 // -inf op a2
             if (op == SUM || op == MIN)
                     return NEG_INF;
@@ -1081,6 +1107,10 @@ public class XADD {
             if (substitutions.length > 0) {
                 node1 = getTermNode(xa1._expr, substitutions[0]);
                 node2 = getTermNode(xa2._expr, substitutions[1]);
+
+                if (a1 == a2 && ((op == MAX) || (op == MIN))) {
+                    return tiebreakBetweenBounds(node1, node2, substitutions);
+                }
             } else {
                 node1 = getTermNode(xa1._expr, xa1._annotate);
                 node2 = getTermNode(xa2._expr, xa2._annotate);
@@ -1095,6 +1125,49 @@ public class XADD {
         }
 
         return null;
+    }
+
+    private int tiebreakBetweenBounds(int node1, int node2, int[] substitutions) {
+        /**
+         * Heuristic1: Bound (substitution) with higher depth is prefered.
+         * Reason: Such a bound is expected to have more information.
+         * 
+         * Heuristic2: Chose bound that was created using more number of expressions (ArithExpr).
+         * Reason: Such a bound is expected to have more information.
+         */
+
+        // Heuristic1
+        int d1 = depth(substitutions[0]);
+        int d2 = depth(substitutions[1]);
+
+        if (d1 > d2) {
+            return node1;
+        } else if (d2 > d1) {
+            return node2;
+        }
+
+        // Heuristic2
+        int ub_count = substitutions[2];
+        int lb_count = substitutions[3];
+
+        if (ub_count > lb_count) {
+            return node1;
+        } else if (lb_count > ub_count) {
+            return node2;
+        }
+
+        System.out.println("unhandled case of same evaluations.");
+        // changed to node2 for reservoir. for traffic back to default of node1.
+        return node1;
+    }
+
+    public int depth(int node_id) {
+        XADDNode n = getExistNode(node_id);
+        if (n instanceof XADDTNode) {
+            return 1;
+        }
+        Integer depthBelow = Math.max(depth(((XADDINode) n)._high), depth(((XADDINode) n)._low));
+        return depthBelow + 1;
     }
 
     ////////////////////////
@@ -1583,7 +1656,9 @@ public class XADD {
         _hmReduceCanonCache.clear();
         _hmReduceLeafOpCache.clear();
         _hmApplyCache.clear();
-        _hmApplyCache2.clear();
+        for (HashMap<IntQuintuple, Integer> applyCache: _hmApplyCaches.values()) {
+            applyCache.clear();
+        }
         _hmINode2Vars.clear();
         _hmReduceAnnotateCache.clear();
 
@@ -1807,7 +1882,9 @@ public class XADD {
     // Quick cache snapshot
     public void showCacheSize() {
         System.out.println("APPLY CACHE:    " + _hmApplyCache.size());
-        System.out.println("APPLY2 CACHE:   " + _hmApplyCache2.size());
+        for (HashMap<IntTriple, Integer> applyCache: _hmApplyCaches.values()) {
+            System.out.println("VAR APPLY CACHES:   " + applyCache.size());
+        }
         System.out.println("REDUCE CACHE:   " + _hmReduceCache.size());
         System.out.println("REDUCE CACHE C: " + _hmReduceCanonCache.size());
         System.out.println("REDUCE CACHE L: " + _hmReduceLeafOpCache.size());
@@ -1989,6 +2066,7 @@ public class XADD {
             _upperBound = upper_bound;
             _runningResult = -1;
             _log = ps;
+            _gVar = _minOrMaxVar;
         }
 
         // TODO: revisit whether caching is possible, or in what circumstances
@@ -2147,7 +2225,15 @@ public class XADD {
             // ??? need to avoid case where max leads to an illegal pruning -- occurs???
             //     e.g., could an unreachable constant prune out another reachable node?
             //     (don't think this can happen... still in context of unreachable constraints)
-            int min_max_eval = apply(eval_upper, eval_lower, _bIsMax ? MAX : MIN, new int[] {xadd_upper_bound, xadd_lower_bound}); // handle min and max
+
+            upper_bound = removeRepetions(upper_bound);
+            lower_bound = removeRepetions(lower_bound);
+
+            Integer ub_count = upper_bound.size();
+            Integer lb_count = lower_bound.size(); 
+
+            int min_max_eval = apply(eval_upper, eval_lower, _bIsMax ? MAX : MIN,
+                    new int[] { xadd_upper_bound, xadd_lower_bound, ub_count, lb_count });
             min_max_eval = reduceLinearize(min_max_eval);
 
             // TODO: investigate... sometimes we are getting a quadratic decision below that should have been linearized!
@@ -2235,6 +2321,35 @@ public class XADD {
         }
     }
 
+    private ArrayList<ArithExpr> removeRepetions (ArrayList<ArithExpr> bounds) {
+        /**
+         * Bounds are a collection of DoubleExpr and OperExpr.
+         * This method removes duplicates of DoubleExpr bounds.
+         * Duplicates not checked in OperExpr, and are directly copied over.
+         */
+        ArrayList<ArithExpr> newBounds = new ArrayList<ArithExpr>();
+
+        for (ArithExpr expr: bounds) {
+            if (expr instanceof DoubleExpr) {
+                Boolean isPresent = false;
+                for (ArithExpr storedExpr: newBounds) {
+                    if (storedExpr instanceof DoubleExpr) {
+                        if (((DoubleExpr) expr)._dConstVal == ((DoubleExpr) storedExpr)._dConstVal) {
+                            isPresent = true;
+                            break;
+                        }
+                    }
+                }
+                if (!isPresent) {
+                    newBounds.add(expr);
+                }
+            } else {
+                newBounds.add(expr);
+            }
+        }
+        return newBounds;
+    }
+
     // Get annotation XADD by recursion. For each path from the root to a leaf, the leaf value 
     // is replaced by the annotation. 
     public Integer getArg(Integer n) {
@@ -2261,6 +2376,7 @@ public class XADD {
     // is done is passed so that we can sequentially substitute from the outermost variable annotation.
     public HashMap<String, Integer> argMax(ArrayList<String> varOrder){
         int numVar = varOrder.size();
+        _inequalityToEquality = true;
 
         for (int i=numVar-2; i>=0; i--){
             String curr_var = varOrder.get(i);
@@ -2273,8 +2389,10 @@ public class XADD {
                 Integer outer_anno = _hmVar2Anno.get(outer_var);
                 curr_anno = reduceProcessXADDLeaf(outer_anno, new DeltaFunctionSubstitution(outer_var, curr_anno), true);
             }
-            _hmVar2Anno.put(curr_var, curr_anno);
+            _hmVar2Anno.put(curr_var, reduceLP(reduceLinearize(curr_anno)));
         }
+
+        _inequalityToEquality = false;
         return _hmVar2Anno;
     }
     ////////////////////////////////////////////////////
@@ -2752,7 +2870,11 @@ public class XADD {
                 if (_annotate == null)
                     return t._annotate == null && t._expr.equals(_expr);
                 else
-                    return t._annotate.equals(_annotate) && t._expr.equals(_expr);
+                    try{
+                        return t._annotate.equals(_annotate) && t._expr.equals(_expr);
+                    } catch (Exception e){
+                        return _annotate.equals(t._annotate) && t._expr.equals(_expr);
+                    }
             } else
                 return false;
         }
@@ -3189,6 +3311,13 @@ public class XADD {
                 double dval_lhs = ((DoubleExpr) ((ExprDec) d)._expr._lhs)._dConstVal;
                 double dval_rhs = ((DoubleExpr) ((ExprDec) d)._expr._rhs)._dConstVal;
                 TautDec tdec = null;
+                
+                if (_inequalityToEquality) {
+                    if (((ExprDec) d)._expr._type == CompOperation.GT) {
+                        ((ExprDec) d)._expr._type = CompOperation.GT_EQ;
+                    }
+                }
+
                 switch (((ExprDec) d)._expr._type) {
                     case EQ:
                         tdec = new TautDec(dval_lhs == dval_rhs);

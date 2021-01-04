@@ -14,6 +14,7 @@ import util.IntTriple;
 import xadd.XADD;
 import xadd.XADDUtils;
 import xadd.ExprLib.*;
+import xadd.XADD.*;
 
 /**
  * Main Continuous State and Action MDP (CAMDP) dynamic programming solution class
@@ -204,6 +205,85 @@ public class CAMDP {
             e.printStackTrace();
             System.exit(1);
         }
+
+        int lp = _context._lp;
+        if (lp > -1) {
+            argmaxLPandModifyActionTransitions(lp);
+        }
+    }
+
+    private void argmaxLPandModifyActionTransitions(Integer lp) {
+        /**
+         * Perform argmax over the LP.
+         * Substitute argmax results over transition equations in _hmName2Action.
+         */
+        ArrayList<String> varList = _context.otvariables;
+
+        for (String var: varList) {
+            // TODO: lb and ub should be given in the file
+            XADDLeafMinOrMax max = _context.new XADDLeafMinOrMax(var, 0, 10000, true, System.out);
+            _context.reduceProcessXADDLeaf(lp, max, false);
+            
+            // Store max xadd and argmax xadd to hash maps
+            lp = max._runningResult;
+            Integer anno = _context.getArg(lp);
+            anno = _context.reduceLinearize(anno);
+            anno = _context.reduceLP(anno);
+            // hmVar2MaxDD.put(var, lp);       // not sure if we need to keep this 
+            _context._hmVar2Anno.put(var, anno);
+        }
+
+        HashMap<String, Integer> argmax = _context.argMax(varList);
+
+        for (Map.Entry<String, CAction> kv: _hmName2Action.entrySet()) {
+            modifyActionTransitions(kv.getKey(), kv.getValue(), argmax);
+        }
+    }
+
+    private void modifyActionTransitions(String action, CAction caction, HashMap<String, Integer> subs) {
+        HashMap<String, ArithExpr> actSub = new HashMap<String, ArithExpr>();
+        Double actionVal = Double.parseDouble(action.split("a")[1]);
+        actSub.put("a", new DoubleExpr(actionVal));
+        HashMap<String, Integer> subsWithAction = new HashMap<String, Integer>();
+
+        // substitute action in argmax substitutions
+        for (Map.Entry<String, Integer> kv: subs.entrySet()) {
+            Integer ret = caction._camdp._context.substitute(kv.getValue(), actSub);
+            ret = _context.reduceLP(_context.reduceLinearize(ret));
+            subsWithAction.put(kv.getKey(), ret);
+        }
+
+        // substitute in transition expressions
+        for (Map.Entry<String, Integer> kv : caction._hmVar2DD.entrySet()) {
+            Integer node_id = substituteValuesInNode(kv.getValue(), subsWithAction);
+            caction._hmVar2DD.put(kv.getKey(), node_id);
+        }
+
+        // substitute in reward expression
+        Integer reward = substituteValuesInNode(caction._reward, subsWithAction);
+        caction._reward = reward;
+    }
+
+    private Integer substituteValuesInNode(Integer node_id, HashMap<String, Integer> subs) {
+        /**
+         * node_id is id for terminal node.
+         * vars inside node_id expression are replaced with xadd provided in subs.
+         */
+
+        XADDNode node = _context.getNode(node_id);
+        HashSet<String> exprVars = new HashSet<String>();
+        node.collectVars(exprVars);
+        _context._inequalityToEquality = true;
+
+        for (String var: subs.keySet()) {
+            if (exprVars.contains(var)) {
+                node_id = _context.reduceProcessXADDLeaf(subs.get(var), _context.new DeltaFunctionSubstitution(var, node_id), true);
+            }
+        }
+
+        _context._inequalityToEquality = false;
+        node_id = _context.reduceLP(_context.reduceLinearize(node_id));
+        return node_id;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -219,6 +299,8 @@ public class CAMDP {
         _nCurIter = 0;
         if (max_iter < 0)
             max_iter = _nMaxIter;
+        else
+            _nMaxIter = max_iter;
 
         int totalTime = 0;
         long[] time = new long[max_iter + 1];
@@ -543,11 +625,14 @@ public class CAMDP {
     }
     public void doDisplay(int xadd_id, String label) {
         exportXADD(xadd_id, label); // Exports DAG, can read in later and view using XADDViewer
-        if (DISPLAY_V)
+        // Boolean toPlot = (_nCurIter == _nMaxIter);
+        // Boolean toPlot = true;
+        Boolean toPlot = ((_nCurIter % 5) == 0 || (_nCurIter == 1));
+        if (DISPLAY_V && toPlot)
             displayGraph(xadd_id, label);
-        if (DISPLAY_2D)
+        if (DISPLAY_2D && toPlot)
             display2D(xadd_id, label);
-        if (DISPLAY_3D)
+        if (DISPLAY_3D && toPlot)
             display3D(xadd_id, label);
     }
 

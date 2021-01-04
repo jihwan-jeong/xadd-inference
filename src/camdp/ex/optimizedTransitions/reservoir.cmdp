@@ -1,0 +1,79 @@
+cvariables ( l1   l2   q1  q2 )
+min-values ( 0    0    0   0  )
+max-values ( 3000 1500 250 300) 
+bvariables ( r )
+otvariables( q1 q2 )
+nvariables()
+icvariables()
+min-values ()
+max-values ()
+ibvariables()
+avariables()
+
+transitionlp
+q2 ([q2 < 300]
+        ([q1 < a*250]
+                (r
+                        ([0.98*l1 - q1 + 200 < 3000]
+                                ([0.98*l1 - q1 + 200 > 1000]
+                                        ([0.98*l2 + q1 - q2 + 200 < 1500]
+                                                ([0.98*l2 + q1 - q2 + 200 > 700]
+                                                        ([q2])
+                                                        ([-Infinity])
+                                                )
+                                                ([-Infinity])
+                                        )
+                                        ([-Infinity])
+                                )
+                                ([-Infinity])
+                        )
+                        ([0.98*l1 - q1 < 3000]
+                                ([0.98*l1 - q1 > 1000]
+                                        ([0.98*l2 + q1 - q2 < 1500]
+                                                ([0.98*l2 + q1 - q2 > 700]
+                                                        ([q2])
+                                                        ([-Infinity])
+                                                )
+                                                ([-Infinity])
+                                        )
+                                        ([-Infinity])
+                                )
+                                ([-Infinity])
+                        )
+                )
+                ([-Infinity])
+        )
+        ([-Infinity])
+)
+endtransition
+
+action a1
+        r' (r ([0.4])([0.4]))
+        l1' ( r 
+                ([0.98*l1 - q1 + 200])
+                ([0.98*l1 - q1]) 
+        )
+        l2' ( r 
+                ([0.98*l2 + q1 - q2 + 200])
+                ([0.98*l2 + q1 - q2]) 
+        )
+reward ([q2])
+endaction
+
+
+action a0
+        r' (r ([0.4])([0.4]))
+        l1' ( r 
+                ([0.98*l1 + 200])
+                ([0.98*l1]) 
+        )
+        l2' ( r 
+                ([0.98*l2 - q2 + 200])
+                ([0.98*l2 - q2]) 
+        )
+reward ([q2])
+endaction
+
+
+discount 1.000
+iterations 10
