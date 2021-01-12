@@ -1,6 +1,6 @@
 cvariables (d)
-min-values (0)
-max-values (10000)
+min-values (1200)
+max-values (20000)
 bvariables (b)
 nvariables ()
 icvariables (xo1, xo2, x12, x1e, x2e, ao1, ao2, a12, a1e, a2e)

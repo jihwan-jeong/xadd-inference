@@ -3,21 +3,21 @@ min-values ( 1000 700)
 max-values ( 3000 2000) 
 bvariables ( r )
 nvariables()
-icvariables(q1 q2 q1r q2r a)
-min-values (0 0 0 0 0)
-max-values (250 300 250 300 1)
+icvariables(q1 q2 q1r q2r a in1 in2)
+min-values (0 0 0 0 0 0 0)
+max-values (250 300 250 300 1 21 15)
 ibvariables()
 avariables()
-lpvariables (q1 q2 q1r q2r)
+lpvariables (q1 q2 q1r q2r in1 in2)
 
 transitionlp
 q2 ([q2 < 300]
         ([q1 < a * 250]
-                ([0.98*l1 - q1 < 3000]
-                        ([0.98*l1 - q1 > 1000]
-                                ([0.98*l2 + q1 - q2 < 2000]
-                                        ([0.98*l2 + q1 - q2 > 700]
-                                                ([q2])
+                ([0.98*l1 - q1 + in1 < 3000]
+                        ([0.98*l1 - q1 + in1 > 1000]
+                                ([0.98*l2 + q1 - q2 + in2 < 2000]
+                                        ([0.98*l2 + q1 - q2 + in2 > 700]
+                                                ([q2 - in1 - in2])
                                                 ([-Infinity])
                                         )
                                 ([-Infinity])
@@ -55,18 +55,18 @@ q2r ([q2r < 300]
 endtransition
 
 objective
-obj ([q2 + q2r])
+obj ([q2 + q2r - in1 - in2])
 endobjective
 
 action a1
         r' (r ([0.4])([0.4]))
         l1' ( r 
                 ([0.98*l1 - q1r + 200])
-                ([0.98*l1 - q1]) 
+                ([0.98*l1 - q1 + in1]) 
         )
         l2' ( r 
                 ([0.98*l2 + q1r - q2r + 200])
-                ([0.98*l2 + q1 - q2]) 
+                ([0.98*l2 + q1 - q2 + in2]) 
         )
 reward ( r
                 ([q2r])
@@ -79,11 +79,11 @@ action a0
         r' (r ([0.4])([0.4]))
         l1' ( r 
                 ([0.98*l1 + 200])
-                ([0.98*l1]) 
+                ([0.98*l1 + in1]) 
         )
         l2' ( r 
                 ([0.98*l2 - q2r + 200])
-                ([0.98*l2 - q2]) 
+                ([0.98*l2 - q2 + in2]) 
         )
 reward ( r
                 ([q2r])

@@ -532,7 +532,7 @@ public class CAMDP {
         for (String var: varSet1) {
             if (!_hsContLPVars.contains(var) && !_hsContSVars.contains(var)){
                 actIVarSet.add(var);
-            } else if (_hsContLPVars.contains(var) && !varOrder0.contains(var)){
+            } else if (_hsContLPVars.contains(var) && !varOrder1.contains(var)){
                 varOrder1.add(var);      // variables not in the objective are maximized at the end
             }
         }
@@ -564,7 +564,29 @@ public class CAMDP {
         HashMap<String, Integer> argmax = _context.argMax(varOrder1);
 
         // Print out argmax solution for each action
-        // TODO
+        // HashMap<String, ArithExpr> actSub = new HashMap<String, ArithExpr>();
+        // // Double actionVal = 0.0;
+        // actSub.put("a", new DoubleExpr(0.0));
+        // Integer ret = _context.substitute(argmax.get("q1"), actSub);
+        // display3D(ret, "q1", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+        // System.out.println(_context.getString(argmax.get("q1")));
+
+        // ret = _context.substitute(argmax.get("q2"), actSub);
+        // display3D(ret, "q2", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+
+        // ret = _context.substitute(argmax.get("q1r"), actSub);
+        // display3D(ret, "q1r", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+
+        // ret = _context.substitute(argmax.get("q2r"), actSub);
+        // display3D(ret, "q2r", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+
+        // ret = _context.substitute(argmax.get("in1"), actSub);
+        // display3D(ret, "in1", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+
+        // ret = _context.substitute(argmax.get("in2"), actSub);
+        // display3D(ret, "in2", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+
+        // System.out.println();
 
         // Now, for each action, modify argmax XADD of dq variables and substitute into transition & reward XADDs.
         // Reward and transition are referred by _reward and _hmVar2DD, respectively.

@@ -430,13 +430,25 @@ public class XADDUtils {
         // substitute a value for q1 (traffic)
         if (context._domain.equalsIgnoreCase("traffic")){
             HashMap<String, ArithExpr> subs = new HashMap<String, ArithExpr>();
-            // subs.put("q1", new DoubleExpr(220));
+            // PLOT1
+            // subs.put("q1", new DoubleExpr(100));
             // subs.put("q4", new DoubleExpr(100));
-            subs.put("q2", new DoubleExpr(120));
-            subs.put("q4", new DoubleExpr(100));
+            
+            // PLOT2
+            subs.put("q2", new DoubleExpr(60));
+            subs.put("q3", new DoubleExpr(50));
+            subs.put("q5", new DoubleExpr(50));
             xadd = context.substitute(xadd, subs);
         }
 
+        // PLOT1
+        // var	q2	0	1	120
+        // var	q3	0	1	100
+
+        // PLOT2
+        // var	q1	0	1	100
+        // var	q4	0	1	100
+                        
         static_dvars = new HashMap<String, Double>(static_dvars);
         float[][] xArr = new float[alY.size()][alX.size()];
         float[][] yArr = new float[alY.size()][alX.size()];
