@@ -3,3 +3,4 @@ src/camdp/ex/discact/results/
 src/camdp/ex/optimizedTransitions/results/
 src/camdp/ex/discact/BandwidthOptimizationProblems/results/
 *.dot
+bin/

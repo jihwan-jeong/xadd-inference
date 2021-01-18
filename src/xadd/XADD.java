@@ -1911,7 +1911,7 @@ public class XADD {
     // Quick cache snapshot
     public void showCacheSize() {
         System.out.println("APPLY CACHE:    " + _hmApplyCache.size());
-        for (HashMap<IntTriple, Integer> applyCache: _hmApplyCaches.values()) {
+        for (HashMap<IntQuintuple, Integer> applyCache: _hmApplyCaches.values()) {
             System.out.println("VAR APPLY CACHES:   " + applyCache.size());
         }
         System.out.println("REDUCE CACHE:   " + _hmReduceCache.size());

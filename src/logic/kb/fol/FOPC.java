@@ -22,7 +22,8 @@ package logic.kb.fol;
 import java.io.*;
 import java.util.*;
 
-import logic.kb.*;
+import logic.kb.fol.*;
+import logic.kb.prop.*;
 import logic.kb.fol.kif.HierarchicalParser;
 import logic.kb.fol.parser.*;
 

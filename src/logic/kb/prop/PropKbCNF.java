@@ -31,7 +31,8 @@ import java.io.*;
 import java.util.*;
 
 //import logic.add.*;
-import logic.kb.*;
+import logic.kb.fol.*;
+import logic.kb.prop.*;
 
 import util.MapList;
 import util.WinUNIX;
