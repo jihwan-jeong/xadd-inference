@@ -806,6 +806,7 @@ public class CAMDP {
         int[] num_nodes = new int[max_iter + 1];
         int[] num_leaves = new int[max_iter + 1];
         int[] num_branches = new int[max_iter + 1];
+        long[] num_memory = new long[max_iter + 1];
 
         //////////////////////////////////////////////////////////////////////////
 
@@ -822,6 +823,9 @@ public class CAMDP {
 
             // Prime diagram
             _prevDD = _valueDD;
+
+            // Initialization for memory usage.
+            Runtime runtime = Runtime.getRuntime();
 
             // Iterate over each action
             _maxDD = null;
@@ -900,6 +904,10 @@ public class CAMDP {
             _logStream.println("Value function size @ end of iteration " + _nCurIter +
                     ": " + num_nodes[_nCurIter] + " nodes = " +
                     num_branches[_nCurIter] + " cases" + " in " + time[_nCurIter] + " ms");
+
+            // Store memory usage.
+            runtime.gc();
+            num_memory[_nCurIter] = runtime.totalMemory() - runtime.freeMemory();
             
             //////////////////////////////////////////////////////////////////////////
             //Verify Early Convergence
@@ -934,7 +942,7 @@ public class CAMDP {
         for (int i = 1; i <= max_iter; i++) {
             String branch_count = num_branches[i] >= 0
                     ? "" + num_branches[i] : " > " + XADD.MAX_BRANCH_COUNT;
-            _logStream.println("Iter " + i + ": nodes = " + num_nodes[i] + "\tbranches = " + branch_count + "\ttime = " + time[i] + " ms");
+            _logStream.println("Iter " + i + ": nodes = " + num_nodes[i] + "\tbranches = " + branch_count + "\tmemory = " + num_memory[i] + "\ttime = " + time[i] + " ms");
         }
         //////////////////////////////////////////////////////////////////////////
 

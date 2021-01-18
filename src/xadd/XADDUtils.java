@@ -435,8 +435,8 @@ public class XADDUtils {
             // subs.put("q4", new DoubleExpr(100));
             
             // PLOT2
-            subs.put("q2", new DoubleExpr(60));
-            subs.put("q3", new DoubleExpr(50));
+            subs.put("q2", new DoubleExpr(85));
+            subs.put("q3", new DoubleExpr(85));
             subs.put("q5", new DoubleExpr(50));
             xadd = context.substitute(xadd, subs);
         }
