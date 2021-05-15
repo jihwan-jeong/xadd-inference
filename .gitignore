@@ -1,0 +1,6 @@
+.vscode/launch.json
+src/camdp/ex/discact/results/
+src/camdp/ex/discact/BandwidthOptimizationProblems/results/
+src/camdp/ex/contact/results/
+*.dot
+src/camdp/ex/optimizedTransitions/results/

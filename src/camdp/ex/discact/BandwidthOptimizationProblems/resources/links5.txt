@@ -1,0 +1,7 @@
+path1: ao1, a1e
+path2: ao1, a12, a2e
+path3: ao2, a2e
+path12: ao1, a12, a1e, a2e
+path13: ao1, ao2, a1e, a2e
+path23: ao1, ao2, a12, a2e
+path123: ao1, ao2, a12, a1e, a2e

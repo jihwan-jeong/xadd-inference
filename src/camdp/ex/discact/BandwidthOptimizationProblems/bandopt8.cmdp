@@ -1,0 +1,189 @@
+cvariables (d)
+min-values (0)
+max-values (10000)
+bvariables ()
+nvariables ()
+icvariables (xo1, xo2, x13, x14, x23, x24, x35, x45, ao1, ao2, a13, a14, a23, a24, a35, a45)
+min-values (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+max-values (3000, 2000, 1000, 1500, 1700, 1600, 2500, 2400, 1, 1, 1, 1, 1, 1, 1, 1)
+ibvariables ()
+avariables ()
+
+transitionlp
+x5e ([xo1 <= ao1 * 3000]
+        ([xo2 <= ao2 * 2000]
+            ([x13 <= a13 * 1000]
+                ([x14 <= a14 * 1500]
+                    ([x23 <= a23 * 1700]
+                        ([x24 <= a24 * 1600]
+                            ([x35 < a35 * 2500]
+                                ([x45 < a45 * 2400]
+                                    ([x45 + x35])
+                                    ([-10000])
+                                )
+                                ([-10000])
+                            )
+                            ([-10000])
+                        )
+                        ([-10000])
+                    )
+                    ([-10000])
+                )
+                ([-10000])
+            )
+            ([-10000])
+        )
+        ([-10000])
+    )
+endtransition
+
+
+eqconstraints
+xo1 ([x13 + x14])
+xo2 ([x23 + x24])
+x35 ([x13 + x23])
+x45 ([x14 + x24])
+endeqconstraints
+
+action path1
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path2
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path3
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path4
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path12
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path13
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path14
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path23
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path24
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path34
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path123
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path124
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path234
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+action path1234
+        d' ([d > (x1e + x2e)]
+                ([d - (x1e + x2e) + 2000])
+                ([2000])
+        )
+reward ( [rev * (x45 + x35) - 2 * (d - (x45 + x35)) 
+            - (mo1*ao1+mo2*ao2+m13*a13+m14*a14+m23*a23+m24*a24+m35*a35+m45*a45) 
+            - (co1*xo1+co2*xo2+c13*x13+c14*x14+c23*x23+c24*x24+c35*x35+c45*x45)])
+endaction
+
+discount 1.000
+iterations 10

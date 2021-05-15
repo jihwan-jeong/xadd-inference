@@ -18,10 +18,10 @@ public class WinUNIX {
     public static int SYSTEM = UNDEFINED;
 
     public static String SAT_EXE = null;
-    public static String GVIZ_EXE = null;
+    public static String GVIZ_EXE = "/usr/local/bin/dot -Tdot";
     public static String GVIZ_CMD = null;
     public static String GVIZ_CMD_CLOSE = null;
-    public static String GVIZ2_EXE = null;
+    public static String GVIZ2_EXE = "/usr/local/bin/neato -Tdot";
     public static String GVIZ2_CMD = null;
     public static String GVIZ2_CMD_CLOSE = null;
 
@@ -50,10 +50,10 @@ public class WinUNIX {
         } else if (SYSTEM == LINUX_LIKE) {
 
             SAT_EXE = "minisat/minisat";
-            GVIZ_EXE = "/usr/bin/dot -Tdot";
+            GVIZ_EXE = "/usr/local/bin/dot -Tdot";
             GVIZ_CMD = "/bin/sh 'dot -Tdot";
             GVIZ_CMD_CLOSE = "'";
-            GVIZ2_EXE = "/usr/bin/neato -Tdot";
+            GVIZ2_EXE = "/usr/local/bin/neato -Tdot";
             GVIZ2_CMD = "/bin/sh 'neato -Tdot";
             GVIZ2_CMD_CLOSE = "'";
 
