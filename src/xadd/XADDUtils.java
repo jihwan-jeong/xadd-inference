@@ -30,12 +30,15 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
 import javax.swing.WindowConstants;
+import javax.swing.plaf.basic.BasicInternalFrameTitlePane.SystemMenuBar;
 
 import net.ericaro.surfaceplotter.JSurfacePanel;
 import net.ericaro.surfaceplotter.surface.ArraySurfaceModel;
 
 import plot.PlotExample;
 import util.DevNullPrintStream;
+import xadd.ExprLib.DoubleExpr;
+import xadd.ExprLib.ArithExpr;
 
 public class XADDUtils {
 
@@ -424,10 +427,36 @@ public class XADDUtils {
             ps = new DevNullPrintStream();
         }
 
+        // substitute a value for q1 (traffic)
+        if (context._domain.equalsIgnoreCase("traffic")){
+            HashMap<String, ArithExpr> subs = new HashMap<String, ArithExpr>();
+            // PLOT1
+            // subs.put("q1", new DoubleExpr(100));
+            // subs.put("q4", new DoubleExpr(100));
+            
+            // PLOT2
+            subs.put("q2", new DoubleExpr(85));
+            subs.put("q3", new DoubleExpr(85));
+            subs.put("q5", new DoubleExpr(50));
+            xadd = context.substitute(xadd, subs);
+        }
+
+        // PLOT1
+        // var	q2	0	1	120
+        // var	q3	0	1	100
+
+        // PLOT2
+        // var	q1	0	1	100
+        // var	q4	0	1	100
+                        
         static_dvars = new HashMap<String, Double>(static_dvars);
         float[][] xArr = new float[alY.size()][alX.size()];
         float[][] yArr = new float[alY.size()][alX.size()];
         float[][] zArr = new float[alY.size()][alX.size()];
+        float max_z = (float) - 9E10;
+        float min_z = (float) 9E10;
+        float argmax_x = 0, argmax_y = 0;
+        float argmin_x = 0, argmin_y = 0;
         for (int i = 0; i < alY.size(); i++) {
             for (int j = 0; j < alX.size(); j++) {
 
@@ -444,6 +473,13 @@ public class XADDUtils {
                 		z = z > 0 ? INFINITE_PLOT_VALUE : -INFINITE_PLOT_VALUE;
                 }
                 if (z == 0.0) z = (float) 0.01;
+                if (z > max_z) {
+                    max_z = z; argmax_x = x; argmax_y = y;
+                }
+                if (z < min_z){
+                    min_z = z; argmin_x = x; argmin_y = y;
+                }
+
                 static_dvars.remove(xVar);
                 static_dvars.remove(yVar);
 
@@ -457,6 +493,9 @@ public class XADDUtils {
         }
         ps.close();
 
+        System.out.println("Max value: "+ max_z + " at (" + argmax_x + ", " +argmax_y + ")");
+        System.out.println("Min value: "+ min_z + " at (" + argmin_x + ", " +argmin_y + ")");
+
         // Create a Simple 2D XY plot window.
         JSurfacePanel jsp = new JSurfacePanel();
         jsp.setTitleText(title + " X = " + xVar + " Y = " + yVar);
@@ -467,6 +506,10 @@ public class XADDUtils {
         ArraySurfaceModel sm = new ArraySurfaceModel();
         sm.setValues(xArr[0][0], xArr[alY.size() - 1][alX.size() - 1],
                 yArr[0][0], yArr[alY.size() - 1][alX.size() - 1], alX.size(), zArr, null);
+        float zmin = min_z - (float) 0.02 * (max_z -min_z);
+        float zmax = max_z + (float) 0.02 * (max_z -min_z);
+        sm.setZMin(zmin);
+        sm.setZMax(zmax);
         sm.setDisplayXY(true);
         sm.setDisplayZ(true);
         sm.setDisplayGrids(true);

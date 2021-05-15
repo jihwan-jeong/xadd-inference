@@ -1,0 +1,133 @@
+cvariables (d)
+min-values (1200)
+max-values (20000)
+bvariables (b)
+nvariables ()
+icvariables (xo1, xo2, x12, x1e, x2e, ao1, ao2, a12, a1e, a2e)
+min-values (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+max-values (2100, 1800, 1000, 1500, 1700, 1, 1, 1, 1, 1)
+ibvariables ()
+avariables ()
+lpvariables(xo1, xo2, x12, x1e, x2e)
+
+transitionlp
+x2e ([xo1 <= ao1 * 3000]
+        ([xo2 <= ao2 * 2000]
+	        ([x12 <= a12 * 1000]
+                ([x1e <= a1e * 1500]
+                    ([x2e <= a2e * 1700]
+                        ([xo1 + xo2])
+                        ([-Infinity])
+                    )
+                    ([-Infinity])
+                )
+                ([-Infinity])
+            )
+            ([-Infinity])
+        )
+        ([-Infinity])
+    )
+endtransition
+
+objective
+obj ([xo1 + xo2])
+endobjective
+
+eqconstraints
+x1e ([xo1 - x12])
+x2e ([xo2 + x12])
+endeqconstraints
+
+action path1
+        b' (b ([0.7])([0.7]))
+        d' ([d > (xo1+xo2)] 
+                (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
+                (b ([2500])([1200]))
+        )
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * (xo1 + xo2)])
+)
+endaction
+
+action path2
+        b' (b ([0.7])([0.7]))
+        d' ([d > (xo1+xo2)] 
+                (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
+                (b ([2500])([1200]))
+        )
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * (xo1 + xo2)])
+)
+endaction
+
+action path3
+        b' (b ([0.7])([0.7]))
+        d' ([d > (xo1+xo2)] 
+                (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
+                (b ([2500])([1200]))
+        )
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * (xo1 + xo2)])
+)
+endaction
+
+action path12
+        b' (b ([0.7])([0.7]))
+        d' ([d > (xo1+xo2)] 
+                (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
+                (b ([2500])([1200]))
+        )
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * (xo1 + xo2)])
+)
+endaction
+
+action path13
+        b' (b ([0.7])([0.7]))
+        d' ([d > (xo1+xo2)] 
+                (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
+                (b ([2500])([1200]))
+        )
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * (xo1 + xo2)])
+)
+endaction
+
+action path23
+        b' (b ([0.7])([0.7]))
+        d' ([d > (xo1+xo2)] 
+                (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
+                (b ([2500])([1200]))
+        )
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * (xo1 + xo2)])
+)
+endaction
+
+action path123
+        b' (b ([0.7])([0.7]))
+        d' ([d > (xo1+xo2)] 
+                (b ([d - (xo1 + xo2) + 2500])([d - (xo1+xo2) + 1200]))
+                (b ([2500])([1200]))
+        )
+reward ([d <= xo1 + xo2]
+            ([rev * d - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * d])
+            ([rev * (xo1 + xo2) - 2 * (d - (xo1 + xo2)) 
+            - (mo1*ao1+mo2*ao2+m12*a12+m1e*a1e+m2e*a2e) - co1 * (xo1 + xo2)])
+)
+endaction
+
+discount 0.95
+iterations 10

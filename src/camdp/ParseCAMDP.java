@@ -3,7 +3,10 @@ package camdp;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
+import java.io.*;
 
 import xadd.XADD;
 import xadd.ExprLib.ArithExpr;
@@ -23,8 +26,12 @@ public class ParseCAMDP {
     ArrayList<String> ICVars = new ArrayList<String>();
     ArrayList<String> IBVars = new ArrayList<String>();
     ArrayList<String> AVars = new ArrayList<String>();
+    ArrayList<String> LPVars = new ArrayList<String>();
     public HashMap<String, Double> _minCVal = new HashMap<String, Double>();
     public HashMap<String, Double> _maxCVal = new HashMap<String, Double>();
+    public HashMap<String, ArrayList> _eqConst = new HashMap<String, ArrayList>();
+    public HashMap<String, ArrayList> _lpObj = new HashMap<String, ArrayList>();
+    public HashSet<String> _objVar = new HashSet<String>();
     ArrayList<Double> contParam = new ArrayList<Double>(2);
     //	ArrayList<Integer> constraints = new ArrayList<Integer>();
     BigDecimal discount;
@@ -186,6 +193,17 @@ public class ParseCAMDP {
             AVars = (ArrayList<String>) ((ArrayList) o).clone();
         }
 
+        // lpvariables: variables that are subject to optimization in the given LP formulation
+        o = i.next();
+        push_back = null;
+        if (!(o instanceof String) || !((String) o).equalsIgnoreCase("lpvariables")) {
+            System.out.println("Missing lpvariable declarations before " + o + "...exiting...");
+            exit("Missing lpvariable declarations before " + o + "...exiting...");
+        } else {
+            o = i.next();
+            LPVars = (ArrayList<String>) ((ArrayList) o).clone();
+        }
+
         // Record all continuous vars (except next state)
         ArrayList<String> contVars = new ArrayList<String>();
         contVars.addAll(CVars);
@@ -199,6 +217,66 @@ public class ParseCAMDP {
             NSBVars.add(s + "'");
         for (String s : CVars)
             NSCVars.add(s + "'");
+
+        // Set up transition-lp
+        int k = 0;
+        while (k < 2) {
+            o = push_back == null ? i.next() : push_back;
+            push_back = null;
+            if (!(o instanceof String) || !((String) o).equalsIgnoreCase("transitionlp")) {
+                push_back = o;
+                break;
+            }
+            o = i.next();
+            while (!((String) o).equalsIgnoreCase("endtransition")) {
+                Object o2 = i.next();
+                if (k == 0){
+                    _camdp._context._lp0 = _camdp._context.buildCanonicalXADD((ArrayList) o2);
+                }
+                else {
+                    _camdp._context._lp1 = _camdp._context.buildCanonicalXADD((ArrayList) o2);
+                }
+                o = i.next();
+            }
+            k++;
+        } // endtransition
+
+        // Get variables contained in the objective 
+        while (true) {
+            o = push_back == null ? i.next() : push_back;
+            push_back = null;
+
+            if (!(o instanceof String) || !((String) o).equalsIgnoreCase("objective")){
+                push_back = o;
+                break;
+            }
+
+            o = i.next(); //"obj"
+            
+            while (!((String) o).equalsIgnoreCase("endobjective")){
+                int objVar = _camdp._context.buildCanonicalXADD((ArrayList) i.next());
+                _objVar.addAll(_camdp._context.collectVars(objVar));
+                o = i.next();
+            }
+        }
+
+        // Set up equality constraints for the LP
+        while (true) {
+            o = push_back == null ? i.next() : push_back;
+            push_back = null;
+
+            if (!(o instanceof String) || !((String) o).equalsIgnoreCase("eqconstraints")){
+                push_back = o;
+                break;
+            }
+
+            o = i.next();
+            
+            while (!((String) o).equalsIgnoreCase("endeqconstraints")){
+                _eqConst.put((String) o, (ArrayList) i.next());
+                o = i.next();
+            }
+        }
 
         // Set up actions
         while (true) {
@@ -263,6 +341,40 @@ public class ParseCAMDP {
                 o = i.next();
             }
 
+            if (_camdp._problemFile.contains("bandopt")){
+                // For Bandwidth problem, get constants (prices, coefficients) from a file
+                File fname = new File(String.format("src/camdp/ex/discact/BandwidthOptimizationProblems/resources/constants%s.txt", _camdp._probSize));
+                try {
+                    FileReader fr = new FileReader(fname);
+                    BufferedReader reader = new BufferedReader(fr);
+                    HashMap<String, ArithExpr> setCoefficients = new HashMap<String, ArithExpr>();
+                    String line = reader.readLine();
+                    String[] rev_val = line.split(":");
+                    String rev = rev_val[0].trim();
+                    Double unit_rev = Double.parseDouble(rev_val[1]);
+                    setCoefficients.put(rev, new DoubleExpr(unit_rev));
+
+                    while(true){
+                        line = reader.readLine();
+                        if (line == null) break;
+                        String[] coefs = line.split(",");
+                        String[] min_coef_val = coefs[0].split(":");
+                        String[] unit_coef_val = coefs[1].split(":");
+                        String coef_min = min_coef_val[0].trim();
+                        String coef_unit = unit_coef_val[0].trim();
+                        Double min_price = Double.parseDouble(min_coef_val[1]);
+                        Double unit_price = Double.parseDouble(unit_coef_val[1]);
+                        setCoefficients.put(coef_min, new DoubleExpr(min_price));
+                        setCoefficients.put(coef_unit, new DoubleExpr(unit_price));
+                    }
+                    reward_dd = _camdp._context.substitute(reward_dd, setCoefficients);
+                    reward_dd = _camdp._context.reduceLP(_camdp._context.reduceLinearize(reward_dd));
+
+                } catch (IOException e1){
+                    e1.printStackTrace();
+                }
+            }
+            
             _name2Action.put(aname, new CAction(_camdp, aname, contParam,
                     cpt_map, reward_dd, CVars, BVars, ICVars, IBVars,
                     AVars, NSCVars, NSBVars, noise_map, NoiseVars));
@@ -452,6 +564,10 @@ public class ParseCAMDP {
 
     public ArrayList<String> getNoiseVars() {
         return NoiseVars;
+    }
+
+    public ArrayList<String> getLPVars() {
+        return LPVars;
     }
 
 //	public ArrayList<Integer> getConstraints() {

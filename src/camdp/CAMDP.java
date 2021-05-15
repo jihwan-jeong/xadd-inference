@@ -14,6 +14,7 @@ import util.IntTriple;
 import xadd.XADD;
 import xadd.XADDUtils;
 import xadd.ExprLib.*;
+import xadd.XADD.*;
 
 /**
  * Main Continuous State and Action MDP (CAMDP) dynamic programming solution class
@@ -81,6 +82,7 @@ public class CAMDP {
     public final static int nTimers = 8;
     public static long[] _lTimers = new long[nTimers];
     private static final boolean EFFICIENCY_DEBUG = false;
+    public static String _domain;
 
     /* Local vars */
     public boolean DISPLAY_2D = false;
@@ -94,6 +96,7 @@ public class CAMDP {
     public HashSet<String> _hsBoolIVars;
     public HashSet<String> _hsContIVars;
     public HashSet<String> _hsContAVars;
+    public HashSet<String> _hsContLPVars;
 
     public HashSet<String> _hsNoiseVars;
 
@@ -113,13 +116,22 @@ public class CAMDP {
     public HashMap<String, ArithExpr> _hmPrimeSubs;
     public HashMap<String, CAction> _hmName2Action;
     public HashMap<IntTriple, Integer> _hmContRegrCache;
+    public HashMap<Decision, Boolean> _hmDomainConstraint;
+    public HashMap<Decision, Boolean> _hmDomainConstraintRain;
+    public HashMap<String, Integer> _hmVar2EqConst;
 
     // Constraints not currently allowed, should be applied to the reward as -Infinity
     //public ArrayList<Integer>         _alConstraints;
-
+    public String _probSize;
     public ComputeQFunction _qfunHelper = null;
 
     public State _initialS = null;
+
+    // Map for setting up actions in reservoir problem
+    HashMap<String, String> _action2Var = new HashMap<String, String>();
+    
+    // Map for setting up actions in bandwidth optimization problem
+    HashMap<String, List<String>> _action2Links = new HashMap<String, List<String>>();
 
     ////////////////////////////////////////////////////////////////////////////
     // Constructors
@@ -145,8 +157,12 @@ public class CAMDP {
         _bdDiscount = new BigDecimal("" + (-1));
         _nMaxIter = null;
         _hmName2Action = new HashMap<String, CAction>();
+        _hmDomainConstraint = new HashMap<Decision, Boolean>();
+        _hmDomainConstraintRain = new HashMap<Decision, Boolean>();
 
         // Setup CAMDP according to parsed file contents
+        readBandwidthDomain(file_source);
+        setDomain(file_source);
         ParseCAMDP parser = new ParseCAMDP(this);
         parser.buildCAMDP(input);
         _context.addContinuousVarsBounds(parser._minCVal, parser._maxCVal);
@@ -156,7 +172,6 @@ public class CAMDP {
         _hmName2Action = parser.getHashmap();
         _hmContRegrCache = new HashMap<IntTriple, Integer>();
 
-
         // Setup variable sets and lists
         _hsBoolSVars = new HashSet<String>(intern(parser.getBVars()));
         _hsContSVars = new HashSet<String>(intern(parser.getCVars()));
@@ -164,6 +179,8 @@ public class CAMDP {
         _hsContIVars = new HashSet<String>(intern(parser.getICVars()));
         _hsContAVars = new HashSet<String>(intern(parser.getAVars()));
         _hsNoiseVars = new HashSet<String>(intern(parser.getNoiseVars()));
+        _hsContLPVars = new HashSet<String>(intern(parser.getLPVars()));
+
         _hsBoolAllVars = new HashSet<String>(_hsBoolSVars);
         _hsBoolAllVars.addAll(_hsBoolIVars);
         _hsContAllVars = new HashSet<String>(_hsContSVars);
@@ -174,6 +191,8 @@ public class CAMDP {
         _hsBoolNSVars = new HashSet<String>();
         _hsContNSVars = new HashSet<String>();
         _hmPrimeSubs = new HashMap<String, ArithExpr>();
+        _hmVar2EqConst = new HashMap<String, Integer>();
+
         for (String var : _hsContSVars) {
             String prime_var = var + "'";
             _hmPrimeSubs.put(var, new VarExpr(prime_var));
@@ -189,6 +208,22 @@ public class CAMDP {
         LINEAR_PROBLEM = parser.LINEARITY;
         maxImediateReward = parser.MAXREWARD;
         
+        // solve the transition LP
+        int lp0 = _context._lp0;
+        int lp1 = _context._lp1;
+        // traffic and bandwidth examples
+        if (lp0 != -1 && lp1 == -1){
+            if (_domain != "reservoir"){
+                argmaxLPandModifyActionTransitions(lp0, parser);
+            } else {
+                System.out.println("Wrong domain file given. Check " + file_source);
+                System.exit(1);
+            }
+        // reservoir example
+        } else if (lp0 != -1 && lp1 != -1){
+            argmaxLPandModifyActionTransitions(lp0, lp1, parser);
+        }
+
         // This helper class performs the regression
         _qfunHelper = new ComputeQFunction(_context, this);
         if ( !parser.get_initBVal().isEmpty() || !parser.get_initCVal().isEmpty() )_initialS = new State(parser.get_initCVal(), parser.get_initBVal());
@@ -204,6 +239,550 @@ public class CAMDP {
             e.printStackTrace();
             System.exit(1);
         }
+                
+        // Flush caches after getting the argmax
+        flushCaches(true);
+    }
+
+    public void setDomain(String filename){
+        if (filename.contains("traffic")){
+            _domain = "traffic";
+        } else if (filename.contains("reservoir")){
+            _domain = "reservoir";
+        } else if (filename.contains("bandopt")){
+            _domain = "bandwidth";
+        } else {
+            System.out.println("Unrecognized domain... Exiting...");
+            System.exit(1);
+        }
+        _context._domain = _domain;
+    }
+
+    private void readBandwidthDomain(String file_source){
+        if (file_source.contains("Bandwidth")){
+            String[] tempStr = file_source.split("\\.")[0].split("/");
+            int fnameLength = tempStr[tempStr.length-1].length();
+            _probSize = Character.toString(tempStr[tempStr.length-1].charAt(fnameLength-1));
+            File fname = new File(String.format("src/camdp/ex/discact/BandwidthOptimizationProblems/resources/links%s.txt", _probSize));
+            // System.out.println(links_file.getAbsolutePath());
+            try {
+                FileReader fr = new FileReader(fname);
+                BufferedReader reader = new BufferedReader(fr);
+                while (true) {
+                    String line = reader.readLine();
+                    if (line == null) break;
+    
+                    String[] path2Links = line.split(":");
+                    String actionPath = path2Links[0].trim();
+                    String[] links = path2Links[1].trim().split("\\s*,\\s*");
+                    List<String> listLinks = Arrays.asList(links);
+                    _action2Links.put(actionPath, listLinks);
+                }
+            } catch (IOException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
+        }
+    }
+
+    private void argmaxLPandModifyActionTransitions(Integer lp, ParseCAMDP parser) {
+        /**
+         * Perform argmax over the LP.
+         * Substitute argmax results over transition equations in _hmName2Action.
+         * This method works for the traffic and the bandwidth example. 
+         */
+        HashSet<String> optSet = new HashSet<String>();
+        HashSet<String> actIVarSet = new HashSet<String>();
+        boolean isMax = true;
+        ArrayList<String> varOrder = new ArrayList<String>();
+        Integer dd = lp;
+
+        // Handle equality constraints if exist
+        for (Map.Entry<String, ArrayList> eqconst : parser._eqConst.entrySet()){
+            String var = eqconst.getKey();
+            Integer eq_rhs = _context.buildCanonicalXADD(eqconst.getValue());
+            _hmVar2EqConst.put(var, eq_rhs);                
+
+            // Now, substitute rhs to the LP XADD wherever it appears
+            dd = _context.reduceProcessXADDLeaf(eq_rhs, _context.new DeltaFunctionSubstitution(var, dd), true);
+        }        
+
+        // Get a set of all variables and sequentially max out while keeping track of the annotations
+        HashSet<String> varSet = _context.collectVars(dd);
+        for (String var: parser._objVar){
+            varOrder.add(var);              // Max out variables in the objective function first
+        }
+
+        // Max out the lp
+        for (String var: varSet) {
+            if (!_hsContLPVars.contains(var) && !_hsContSVars.contains(var)){
+                actIVarSet.add(var);
+            } else if (_hsContLPVars.contains(var) && !varOrder.contains(var)){
+                varOrder.add(var);      // variables not in the objective are maximized at the end
+            }
+        }
+
+        for (String var: varOrder){
+            optSet.add(var);
+            double min_val = parser._minCVal.get(var);
+            double max_val = parser._maxCVal.get(var);
+
+            XADDLeafMinOrMax max = _context.new XADDLeafMinOrMax(var, min_val, max_val, isMax, System.out);
+            _context.setCurrOptVar(var);
+            _context.reduceProcessXADDLeaf(dd, max, false);
+
+            // Store argmax xadd to a hash map
+            dd = max._runningResult;
+            Integer anno = -1;
+            if (!parser._objVar.contains(var)){     // Ignore this part.. doing nothing special, but left as is just as a note
+                anno = _context.getArg(dd, var);
+            } else {
+                anno = _context.getArg(dd);
+            }
+            anno = _context.reduceLinearize(anno);
+            anno = _context.reduceLP(anno);
+
+            _context._hmVar2Anno.put(var, anno);
+        }
+        
+        // Compute the argmax xadd of all variables
+        _context.argMax(varOrder);
+
+        // Print out argmax solution for each action
+        double[][] actionLink = new double[][] {{1, 0, 0, 1, 0}, {1, 0, 1, 0, 1}, {0, 1, 0, 0, 1}, 
+                                          {1, 0, 1, 1, 1}, {1, 1, 0, 1, 1}, {1, 1, 1, 0, 1}, {1, 1, 1, 1, 1}};
+        String[] links = new String[] {"ao1", "ao2", "a12", "a1e", "a2e"};
+        String[] actionString = new String[] {"path1", "path2", "path3", "path12", "path13", "path23", "path123"};
+        
+        int k = 0;
+        for (double[] act : actionLink){    
+            System.out.println(String.format("Action: %s", actionString[k]));
+            for (String v : varOrder){
+                Integer anno = _context._hmVar2Anno.get(v);
+                
+                Integer anno_evaluated = substituteForEvaluation(anno, links, act);
+                System.out.println(String.format("\tvar: %s\tvalue: %s", v, _context.getString(anno_evaluated)));
+            }
+            k++;
+        }
+
+        // Integer obj = _context.apply(_context._hmVar2Anno.get("dq2"), _context._hmVar2Anno.get("dq3"), _context.SUM);
+        // display3D(obj, "Objective (q1=15)");
+
+        // Now, for each action, modify argmax XADD of dq variables and substitute into transition & reward XADDs.
+        // Reward and transition are referred by _reward and _hmVar2DD, respectively.
+        for (Map.Entry<String, CAction> aname2CAction : _hmName2Action.entrySet()){
+            String aname = aname2CAction.getKey();
+            CAction act = aname2CAction.getValue();
+            Integer origR = act._reward;
+            Integer modifiedR = origR;
+            HashMap<String, Integer> origTrans = act._hmVar2DD;
+            HashMap<String, Integer> modifiedTrans = new HashMap<String, Integer>();
+            HashMap<String, ArithExpr> aReplace = new HashMap<String, ArithExpr>();
+
+            // If actIVar exists.. (skipped in the traffic example)
+            for (String actVar : actIVarSet){
+                List<String> a_1s = _action2Links.get(aname);
+                if (a_1s.contains(actVar)){
+                    aReplace.put(actVar, new DoubleExpr(1.0));
+                } else {
+                    aReplace.put(actVar, new DoubleExpr(0.0));
+                }
+            }
+
+            // Substitute actVar values to Reward
+            if (!aReplace.isEmpty()){
+                modifiedR = _context.substitute(origR, aReplace);
+                modifiedR = _context.reduceLP(_context.reduceLinearize(modifiedR));
+            }
+
+            // Substitute actVar values to argmax XADD of each variable subject to LP optimization.
+            // Then, substitute those into reward and transition XADDs.
+            HashMap<String, Integer> hmVar2ModifiedOptVar = new HashMap<String, Integer>();
+            for (String optVar : optSet){   
+                Integer origVar = _context._hmVar2Anno.get(optVar);
+                Integer modifiedOptVar = origVar;
+                if (!aReplace.isEmpty()){
+                    modifiedOptVar = _context.substitute(origVar, aReplace);    
+                    modifiedOptVar = _context.reduceLP(_context.reduceLinearize(modifiedOptVar));
+                }
+
+                // Handle equality constraints
+                for (Map.Entry<String, Integer> eqConst : _hmVar2EqConst.entrySet()){
+                    String eqOptVar = eqConst.getKey();
+                    Integer eqRhs = eqConst.getValue();
+                    modifiedR = _context.reduceProcessXADDLeaf(eqRhs, _context.new DeltaFunctionSubstitution(eqOptVar, modifiedR), true);
+                }
+
+                modifiedR = _context.reduceProcessXADDLeaf(modifiedOptVar, _context.new DeltaFunctionSubstitution(optVar, modifiedR), true);
+                modifiedR = _context.reduceLP(_context.reduceLinearize(modifiedR));
+                hmVar2ModifiedOptVar.put(optVar, modifiedOptVar);
+            }
+
+            // Substitute into transition functions
+            for (Map.Entry<String, Integer> trans : origTrans.entrySet()){
+                String nsVar = trans.getKey();
+                Integer modifiedTfunc = trans.getValue();
+                if (!aReplace.isEmpty()){
+                    modifiedTfunc = _context.substitute(modifiedTfunc, aReplace);
+                    modifiedTfunc = _context.reduceLP(_context.reduceLinearize(modifiedTfunc));
+                } 
+                
+                // Handle equality constraints
+                for (Map.Entry<String, Integer> eqConst : _hmVar2EqConst.entrySet()){
+                    String eqOptVar = eqConst.getKey();
+                    Integer eqRhs = eqConst.getValue();
+                    modifiedTfunc = _context.reduceProcessXADDLeaf(eqRhs, _context.new DeltaFunctionSubstitution(eqOptVar, modifiedTfunc), true);
+                }
+
+                for (Map.Entry<String, Integer> optVar2DD : hmVar2ModifiedOptVar.entrySet()){
+                    String optVar = optVar2DD.getKey();
+                    Integer modifiedOptVar = optVar2DD.getValue();
+                    modifiedTfunc = _context.reduceProcessXADDLeaf(modifiedOptVar, _context.new DeltaFunctionSubstitution(optVar, modifiedTfunc), true);
+                    modifiedTfunc = _context.reduceLP(_context.reduceLinearize(modifiedTfunc));
+                }
+                modifiedTrans.put(nsVar, modifiedTfunc);
+            }
+            act._reward = modifiedR;
+            act._hmVar2DD = modifiedTrans;
+
+        }
+    }
+
+    private void argmaxLPandModifyActionTransitions(Integer lp0, Integer lp1, ParseCAMDP parser) {
+        /**
+         * Perform argmax over the LP.
+         * Substitute argmax results over transition equations in _hmName2Action.
+         * This method is solely for the reservoir example. 
+         */
+        HashSet<String> optSet = new HashSet<String>();
+        HashSet<String> actIVarSet = new HashSet<String>();
+        boolean isMax = true;
+        ArrayList<String> varOrder0 = new ArrayList<String>();
+        ArrayList<String> varOrder1 = new ArrayList<String>();
+        Integer dd0 = lp0;
+        Integer dd1 = lp1;
+        
+        // Set up domain constraints
+        VarExpr l1 = new VarExpr("l1");
+        VarExpr l2 = new VarExpr("l2");
+        ExprDec l1_lb = _context.new ExprDec(new CompExpr(CompOperation.GT_EQ, l1, new DoubleExpr(1000.0 / 0.98)));
+        ExprDec l1_ub = _context.new ExprDec(new CompExpr(CompOperation.LT_EQ, l1, new DoubleExpr(3000.0 / 0.98)));
+        ExprDec l2_lb = _context.new ExprDec(new CompExpr(CompOperation.GT_EQ, l2, new DoubleExpr(700.0/0.98)));
+        ExprDec l2_ub = _context.new ExprDec(new CompExpr(CompOperation.LT_EQ, l2, new DoubleExpr(2000.0/0.98)));
+        _hmDomainConstraint.put(l1_lb.makeCanonical(), (Boolean) true);
+        _hmDomainConstraint.put(l1_ub.makeCanonical(), (Boolean) true);
+        _hmDomainConstraint.put(l2_lb.makeCanonical(), (Boolean) true);
+        _hmDomainConstraint.put(l2_ub.makeCanonical(), (Boolean) true);
+        ExprDec l1_lb_r = _context.new ExprDec(new CompExpr(CompOperation.GT_EQ, l1, new DoubleExpr((1000.0 - 200) / 0.98)));
+        ExprDec l1_ub_r = _context.new ExprDec(new CompExpr(CompOperation.LT_EQ, l1, new DoubleExpr((3000.0 - 200) / 0.98)));
+        ExprDec l2_lb_r = _context.new ExprDec(new CompExpr(CompOperation.GT_EQ, l2, new DoubleExpr((700.0 - 200) / 0.98)));
+        ExprDec l2_ub_r = _context.new ExprDec(new CompExpr(CompOperation.LT_EQ, l2, new DoubleExpr((2000.0 - 200) / 0.98)));
+        _hmDomainConstraintRain.put(l1_lb_r.makeCanonical(), (Boolean) true);
+        _hmDomainConstraintRain.put(l1_ub_r.makeCanonical(), (Boolean) true);
+        _hmDomainConstraintRain.put(l2_lb_r.makeCanonical(), (Boolean) true);
+        _hmDomainConstraintRain.put(l2_ub_r.makeCanonical(), (Boolean) true);
+
+        // Get a set of all variables and sequentially max out while keeping track of the annotations
+        HashSet<String> varSet0 = _context.collectVars(dd0);
+        HashSet<String> varSet1 = _context.collectVars(dd1);
+
+        for (String var: parser._objVar){
+            if (var.contains("r")) varOrder1.add(var);
+            else varOrder0.add(var);
+        }
+
+        // Max out the first lp (no rain, q1 q2)
+        // variables: l1, l2, q1, q2, a
+        for (String var: varSet0) {
+            if (!_hsContLPVars.contains(var) && !_hsContSVars.contains(var)){
+                actIVarSet.add(var);
+            } else if (_hsContLPVars.contains(var) && !varOrder0.contains(var)){
+                varOrder0.add(var);      // variables not in the objective are maximized at the end
+            }
+        }
+        for (String var: varOrder0){
+            optSet.add(var);
+            double min_val = parser._minCVal.get(var);
+            double max_val = parser._maxCVal.get(var);
+
+            XADDLeafMinOrMax max = _context.new XADDLeafMinOrMax(var, min_val, max_val, isMax, System.out);
+            _context.setCurrOptVar(var);
+            _context.reduceProcessXADDLeaf(dd0, max, false);
+
+            // Store argmax xadd to a hash map
+            dd0 = max._runningResult;
+            Integer anno = -1;
+            if (!parser._objVar.contains(var)){
+                anno = _context.getArg(dd0, var);
+            } else {
+                anno = _context.getArg(dd0);
+            }
+            anno = _context.reduceLinearize(anno);
+            anno = _context.reduceLP(anno);
+
+            _context._hmVar2Anno.put(var, anno);
+        }
+
+        // Compute the argmax xadd of all variables
+        _context.argMax(varOrder0);
+
+        // Max out the second lp (rain, q1r q2r)
+        // variables: l1, l2, q1r, q2r, a
+        for (String var: varSet1) {
+            if (!_hsContLPVars.contains(var) && !_hsContSVars.contains(var)){
+                actIVarSet.add(var);
+            } else if (_hsContLPVars.contains(var) && !varOrder1.contains(var)){
+                varOrder1.add(var);      // variables not in the objective are maximized at the end
+            }
+        }
+
+        for (String var: varOrder1){
+            optSet.add(var);
+            double min_val = parser._minCVal.get(var);
+            double max_val = parser._maxCVal.get(var);
+
+            XADDLeafMinOrMax max = _context.new XADDLeafMinOrMax(var, min_val, max_val, isMax, System.out);
+            _context.setCurrOptVar(var);
+            _context.reduceProcessXADDLeaf(dd1, max, false);
+
+            // Store argmax xadd to a hash map
+            dd1 = max._runningResult;
+            Integer anno = -1;
+            if (!parser._objVar.contains(var)){
+                anno = _context.getArg(dd1, var);
+            } else {
+                anno = _context.getArg(dd1);
+            }
+            anno = _context.reduceLinearize(anno);
+            anno = _context.reduceLP(anno);
+
+            _context._hmVar2Anno.put(var, anno);
+        }
+
+        // Compute the argmax xadd of all variables
+        HashMap<String, Integer> argmax = _context.argMax(varOrder1);
+
+        // Print out argmax solution for each action
+        // HashMap<String, ArithExpr> actSub = new HashMap<String, ArithExpr>();
+        // // Double actionVal = 0.0;
+        // actSub.put("a", new DoubleExpr(0.0));
+        // Integer ret = _context.substitute(argmax.get("q1"), actSub);
+        // display3D(ret, "q1", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+        // System.out.println(_context.getString(argmax.get("q1")));
+
+        // ret = _context.substitute(argmax.get("q2"), actSub);
+        // display3D(ret, "q2", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+
+        // ret = _context.substitute(argmax.get("q1r"), actSub);
+        // display3D(ret, "q1r", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+
+        // ret = _context.substitute(argmax.get("q2r"), actSub);
+        // display3D(ret, "q2r", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+
+        // ret = _context.substitute(argmax.get("in1"), actSub);
+        // display3D(ret, "in1", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+
+        // ret = _context.substitute(argmax.get("in2"), actSub);
+        // display3D(ret, "in2", "src/camdp/ex/optimizedTransitions/reservoir_lp.cmdp");
+
+        // System.out.println();
+
+        // Now, for each action, modify argmax XADD of dq variables and substitute into transition & reward XADDs.
+        // Reward and transition are referred by _reward and _hmVar2DD, respectively.
+        for (Map.Entry<String, CAction> aname2CAction : _hmName2Action.entrySet()){
+            String aname = aname2CAction.getKey();
+            CAction act = aname2CAction.getValue();
+            Integer origR = act._reward;
+            Integer modifiedR = origR;
+            HashMap<String, Integer> origTrans = act._hmVar2DD;
+            HashMap<String, Integer> modifiedTrans = new HashMap<String, Integer>();
+            HashMap<String, ArithExpr> aReplace = new HashMap<String, ArithExpr>();
+
+            if (aname.substring(1, 2).equals("1")){
+                aReplace.put("a", new DoubleExpr(1.0));
+            } else {
+                aReplace.put("a", new DoubleExpr(0.0));
+            }
+
+            // Substitute 'a' values to argmax XADD of each q, qr variable
+            // Then, substitute those into reward and transition XADDs.
+            HashMap<String, Integer> hmVar2ModifiedOptVar = new HashMap<String, Integer>();
+            for (String optVar : optSet){   
+                Integer origVar = _context._hmVar2Anno.get(optVar);
+                Integer modifiedOptVar = _context.substitute(origVar, aReplace);
+                modifiedOptVar = _context.reduceLP(_context.reduceLinearize(modifiedOptVar));
+                modifiedR = _context.reduceProcessXADDLeaf(modifiedOptVar, _context.new DeltaFunctionSubstitution(optVar, modifiedR), true);
+                modifiedR = _context.reduceLP(_context.reduceLinearize(modifiedR));
+                hmVar2ModifiedOptVar.put(optVar, modifiedOptVar);
+            }
+
+            // Substitute into transition functions
+            for (Map.Entry<String, Integer> trans : origTrans.entrySet()){
+                String nsVar = trans.getKey();
+                Integer modifiedTfunc = _context.substitute(trans.getValue(), aReplace);
+                modifiedTfunc = _context.reduceLP(_context.reduceLinearize(modifiedTfunc));
+
+                for (Map.Entry<String, Integer> optVar2DD : hmVar2ModifiedOptVar.entrySet()){
+                    String optVar = optVar2DD.getKey();
+                    Integer modifiedOptVar = optVar2DD.getValue();
+                    modifiedTfunc = _context.reduceProcessXADDLeaf(modifiedOptVar, _context.new DeltaFunctionSubstitution(optVar, modifiedTfunc), true);
+                    modifiedTfunc = _context.reduceLP(_context.reduceLinearize(modifiedTfunc));
+                }
+                modifiedTrans.put(nsVar, modifiedTfunc);
+            }
+            act._reward = modifiedR; //_context.getINodeCanon(r_node._var, r_low, r_high);
+
+            act._hmVar2DD = modifiedTrans;
+
+            // Remove unused variables (a, q1, q2, q1r, q2r)
+            String[] to_remove = new String[] {"a", "q1", "q2", "q1r", "q2r"};
+            for (String _v_remove : to_remove){
+                act._contIntermVars.remove(_v_remove);
+            }
+
+            System.out.println("Action: " + aname + ":");
+            for (String q : Arrays.copyOfRange(to_remove, 1, to_remove.length)){
+                int q_xadd = hmVar2ModifiedOptVar.get(q);
+                System.out.println("Original q XADD...\n" + q + ":\n" + _context.getString(q_xadd) + "\n");
+                // System.out.println("Enforcing domain constraints over q variables...\n");
+                // HashMap<Decision, Boolean> domainConstraint = q.contains("r")? _hmDomainConstraintRain : _hmDomainConstraint;
+                // q_xadd = enforceDomainConstraint(domainConstraint, q_xadd, 0);
+                // System.out.println("Modified q XADD...\n" + q + ":\n" + _context.getString(q_xadd) + "\n");
+            }
+            // When a = 1, plot 3D surface plot of q1, q2, q1r, q2r 
+            // if (aname.equals("a1")){
+            //     display3D(hmVar2modifiedOptVar.get("q1"), "q1", "src/camdp/ex/optimizedTransitions/reservoir_jihwan_q1.cmdp");
+            //     display3D(hmVar2modifiedOptVar.get("q1r"), "q1r", "src/camdp/ex/optimizedTransitions/reservoir_jihwan_q1r.cmdp");
+            //     display3D(hmVar2modifiedOptVar.get("q2"), "q2", "src/camdp/ex/optimizedTransitions/reservoir_jihwan_q2.cmdp");
+            //     display3D(hmVar2modifiedOptVar.get("q2r"), "q2r", "src/camdp/ex/optimizedTransitions/reservoir_jihwan_q2r.cmdp");
+            // }
+            
+            for (String optVar : optSet){
+                int q_xadd = hmVar2ModifiedOptVar.get(optVar);
+                display3D(q_xadd, optVar + " ("+aname+")");
+            }
+        }
+
+        // Remove unused variables (a, q1, q2, q1r, q2r)
+        String[] to_remove = new String[] {"a", "q1", "q2", "q1r", "q2r"};
+        for (String _v_remove : to_remove){
+            _hsContIVars.remove(_v_remove);
+            _hsContAllVars.remove(_v_remove);
+        }
+        
+        // Ensure nonnegativity of dq2 and dq3 by dq2 = max(0, dq2); dq3 = max(0, dq3)
+        // argmax = enforceNonnegativity(argmax);
+
+        // // To test solutions...
+        // Double[][] testSet = new Double[][] {{0.0, 20.0, 30.0}, {10.0, 90.0, 90.0}, {10.0, 115.0, 95.0},
+        //                                      {20.0, 50.0, 70.0}, {100.0, 105.0, 90.0}, {220.0, 50.0, 70.0},
+        //                                      {230.0, 117.0, 95.0}, {230.0, 100.0, 100.0}, {230.0, 120.0, 100.0},
+        //                                      {5.0, 118.0, 90.0}, {230.0, 125.0, 95.0}};
+        // for (int k=0; k<testSet.length; k++){
+        //     Double[] test_k = testSet[k];
+        //     int res_k = substituteForEvaluation(lp, new String[] {"q1", "q2", "q3"}, test_k);
+        //     int res_dq2 = substituteForEvaluation(argmax.get("dq2_nn"), new String[] {"q1", "q2", "q3"}, test_k);
+        //     int res_dq3 = substituteForEvaluation(argmax.get("dq3_nn"), new String[] {"q1", "q2", "q3"}, test_k);
+        
+        //     System.out.println("Test "+k+":\t(q1, q2, q3)="+Arrays.toString(test_k));
+        //     System.out.println("\tLP objective: " + _context.getString(res_k));
+        //     System.out.println("\tdq2="+_context.getString(res_dq2)+", dq3="+_context.getString(res_dq3)+"\n");
+                
+            
+        // }                                             
+
+        // for (Map.Entry<String, CAction> kv: _hmName2Action.entrySet()) {
+        //     modifyActionTransitions(kv.getKey(), kv.getValue(), argmax);
+        // }
+    }
+
+    private HashMap<String, Integer> enforceNonnegativity(HashMap<String, Integer> argmax){
+        HashMap<String, Integer> modArgMax = new HashMap<String, Integer>();
+        for (Map.Entry<String, Integer> me : argmax.entrySet()) {
+            String v = me.getKey();
+            Integer v_id = me.getValue();
+            modArgMax.put(v, v_id);
+
+            v_id = _context.apply(v_id, _context.ZERO, _context.MAX, new int[] {});
+            v = v + "_nn";
+            modArgMax.put(v, v_id);
+        }
+        return modArgMax;
+    }
+
+    private int enforceDomainConstraint(HashMap<Decision, Boolean> domain_constraint, int xadd, double lowest_value){
+        double _lowVal = lowest_value;
+        int i = 0;
+        for (Map.Entry<Decision, Boolean> me : domain_constraint.entrySet()){
+            // double high_val = Double.POSITIVE_INFINITY;
+            // double low_val = lowest_value; // Double.NEGATIVE_INFINITY;
+            // int constraint = _context.getVarNode(me.getKey(), _lowVal - i * 0.001, high_val);
+            int constraint = _context.getVarNode(me.getKey(), 0, 1);
+            // xadd = _context.apply(constraint, xadd, _context.MIN);
+            xadd = _context.apply(constraint, xadd, _context.PROD);
+            i++;
+        }
+        // xadd = _context.reduceLP(_context.reduceLinearize(xadd));
+        return xadd;
+    }
+
+
+    private int substituteForEvaluation(int xadd, String[] _vars, double[] _vals){
+        HashMap<String, ArithExpr> subs = new HashMap<String, ArithExpr>();
+        int i = 0;
+        for (String v : _vars){
+            subs.put(v, new DoubleExpr(_vals[i]));
+            i++;
+        }
+        xadd = _context.substitute(xadd, subs);
+        return xadd;
+    }
+    
+    private void modifyActionTransitions(String action, CAction caction, HashMap<String, Integer> subs) {
+        HashMap<String, ArithExpr> actSub = new HashMap<String, ArithExpr>();
+        Double actionVal = Double.parseDouble(action.split("a")[1]);
+        actSub.put("a", new DoubleExpr(actionVal));
+        HashMap<String, Integer> subsWithAction = new HashMap<String, Integer>();
+
+        // substitute action in argmax substitutions
+        for (Map.Entry<String, Integer> kv: subs.entrySet()) {
+            Integer ret = caction._camdp._context.substitute(kv.getValue(), actSub);
+            ret = _context.reduceLP(_context.reduceLinearize(ret));
+            subsWithAction.put(kv.getKey(), ret);
+        }
+
+        // substitute in transition expressions
+        for (Map.Entry<String, Integer> kv : caction._hmVar2DD.entrySet()) {
+            Integer node_id = substituteValuesInNode(kv.getValue(), subsWithAction);
+            caction._hmVar2DD.put(kv.getKey(), node_id);
+        }
+
+        // substitute in reward expression
+        Integer reward = substituteValuesInNode(caction._reward, subsWithAction);
+        caction._reward = reward;
+    }
+
+    private Integer substituteValuesInNode(Integer node_id, HashMap<String, Integer> subs) {
+        /**
+         * node_id is id for terminal node.
+         * vars inside node_id expression are replaced with xadd provided in subs.
+         */
+
+        XADDNode node = _context.getNode(node_id);
+        HashSet<String> exprVars = new HashSet<String>();
+        node.collectVars(exprVars);
+        _context._inequalityToEquality = true;
+
+        for (String var: subs.keySet()) {
+            if (exprVars.contains(var)) {
+                node_id = _context.reduceProcessXADDLeaf(subs.get(var), _context.new DeltaFunctionSubstitution(var, node_id), true);
+            }
+        }
+
+        _context._inequalityToEquality = false;
+        node_id = _context.reduceLP(_context.reduceLinearize(node_id));
+        return node_id;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -219,12 +798,15 @@ public class CAMDP {
         _nCurIter = 0;
         if (max_iter < 0)
             max_iter = _nMaxIter;
+        else
+            _nMaxIter = max_iter;
 
         int totalTime = 0;
         long[] time = new long[max_iter + 1];
         int[] num_nodes = new int[max_iter + 1];
         int[] num_leaves = new int[max_iter + 1];
         int[] num_branches = new int[max_iter + 1];
+        long[] num_memory = new long[max_iter + 1];
 
         //////////////////////////////////////////////////////////////////////////
 
@@ -241,6 +823,9 @@ public class CAMDP {
 
             // Prime diagram
             _prevDD = _valueDD;
+
+            // Initialization for memory usage.
+            Runtime runtime = Runtime.getRuntime();
 
             // Iterate over each action
             _maxDD = null;
@@ -291,7 +876,10 @@ public class CAMDP {
 
             System.out.println("Iter:" + _nCurIter + " Complete. Took: "+time[_nCurIter]+"ms, Nodes = "+num_nodes[_nCurIter]+", Memory = "+memDisplay() +" bytes.");
             _logStream.println("Iter complete:" + _nCurIter + _context.getString(_valueDD));
-            doDisplay(_valueDD, "V^" + _nCurIter + makeApproxLabel());
+            if (_nCurIter > 5){//== max_iter){
+                doDisplay(_valueDD, "V^" + _nCurIter + makeApproxLabel());
+            }
+            
 
             if (LINEAR_PROBLEM && APPROX_PRUNING){
                 double maxVal = _context.linMaxVal(_valueDD);;
@@ -316,6 +904,10 @@ public class CAMDP {
             _logStream.println("Value function size @ end of iteration " + _nCurIter +
                     ": " + num_nodes[_nCurIter] + " nodes = " +
                     num_branches[_nCurIter] + " cases" + " in " + time[_nCurIter] + " ms");
+
+            // Store memory usage.
+            runtime.gc();
+            num_memory[_nCurIter] = runtime.totalMemory() - runtime.freeMemory();
             
             //////////////////////////////////////////////////////////////////////////
             //Verify Early Convergence
@@ -350,7 +942,7 @@ public class CAMDP {
         for (int i = 1; i <= max_iter; i++) {
             String branch_count = num_branches[i] >= 0
                     ? "" + num_branches[i] : " > " + XADD.MAX_BRANCH_COUNT;
-            _logStream.println("Iter " + i + ": nodes = " + num_nodes[i] + "\tbranches = " + branch_count + "\ttime = " + time[i] + " ms");
+            _logStream.println("Iter " + i + ": nodes = " + num_nodes[i] + "\tbranches = " + branch_count + "\tmemory = " + num_memory[i] + "\ttime = " + time[i] + " ms");
         }
         //////////////////////////////////////////////////////////////////////////
 
@@ -543,11 +1135,14 @@ public class CAMDP {
     }
     public void doDisplay(int xadd_id, String label) {
         exportXADD(xadd_id, label); // Exports DAG, can read in later and view using XADDViewer
-        if (DISPLAY_V)
+        // Boolean toPlot = (_nCurIter == _nMaxIter);
+        // Boolean toPlot = true;
+        Boolean toPlot = ((_nCurIter % 1) == 0 || (_nCurIter == 1) || (_nCurIter == _nMaxIter));
+        if (DISPLAY_V && toPlot)
             displayGraph(xadd_id, label);
-        if (DISPLAY_2D)
+        if (DISPLAY_2D && toPlot)
             display2D(xadd_id, label);
-        if (DISPLAY_3D)
+        if (DISPLAY_3D && toPlot)
             display3D(xadd_id, label);
     }
 
@@ -623,6 +1218,26 @@ public class CAMDP {
         // If DISPLAY_3D is enabled, it is expected that necessary parameters
         // have been placed in a _problemFile + ".3d"
         FileOptions opt = new FileOptions(_problemFile + ".3d");
+
+        if (!SILENT_PLOT) {
+            System.out.println("Plotting 3D...");
+            System.out.println("var: " + opt._var.get(1) + ", [" + opt._varLB.get(1) + ", " +
+                    opt._varInc.get(1) + ", " + opt._varUB.get(1) + "]");
+            System.out.println("bassign: " + opt._bassign);
+            System.out.println("dassign: " + opt._dassign);
+        }
+
+        XADDUtils.Plot3DSurfXADD(_context, xadd_id,
+                opt._varLB.get(0), opt._varInc.get(0), opt._varUB.get(0),
+                opt._varLB.get(1), opt._varInc.get(1), opt._varUB.get(1),
+                opt._bassign, opt._dassign, opt._var.get(0), opt._var.get(1), _logFileRoot + "." + label);
+    }
+
+    public void display3D(int xadd_id, String label, String file_name) {
+
+        // If DISPLAY_3D is enabled, it is expected that necessary parameters
+        // have been placed in a file_name + ".3d"
+        FileOptions opt = new FileOptions(file_name + ".3d");
 
         if (!SILENT_PLOT) {
             System.out.println("Plotting 3D...");

@@ -21,7 +21,8 @@ public class TestXADD {
      */
 
     public static void main(String[] args) throws Exception {
-    	testMinOut(args);
+        //testMinOut(args);
+        testMultivariateArgmax(args);
     }
 
     public static void main4(String[] args) throws Exception {
@@ -472,6 +473,55 @@ public class TestXADD {
     
     }
     
+    public static void testMultivariateArgmax(String[] args) throws Exception {
+        // Test Multivariate argmax (involves sequential maximization and substitutions)
+        XADD context = new XADD();
+        
+        // Load xadd file encoding an LP
+        String filename = args[0];
+        boolean isMax = (args[1].equals("true")) ? true : false;
+        int lp = context.buildCanonicalXADDFromFile(filename);
+
+        HashSet<String> varSet = context.collectVars(lp);
+        ArrayList<String> varList = new ArrayList<String>();    // Store variables in order
+        Integer dd = lp;
+        
+        // Get a set of all variables and sequentially max out
+        // Also, keep track of annotations after
+        for (String var: varSet) {
+            varList.add(var);
+            
+            // TODO: lb and ub should be given in the file
+            XADDLeafMinOrMax max = context.new XADDLeafMinOrMax(var, 0, 10000, isMax, System.out);
+            int ixadd = context.reduceProcessXADDLeaf(dd, max, false);
+            
+            // Store max xadd and argmax xadd to hash maps
+            dd = max._runningResult;
+            Integer anno = context.getArg(dd);
+            anno = context.reduceLinearize(anno);
+            anno = context.reduceLP(anno);
+            // hmVar2MaxDD.put(var, dd);       // not sure if we need to keep this 
+            context._hmVar2Anno.put(var, anno);
+        }
+        
+        context.argMax(varList);
+        // Backtrack annotations from the outermost variable.
+        // This involves sequential substitution of annotations of outer variables into those of inner variables
+        // The resulting annotation XADD for each variable replaces the hmVar2Anno hashmap.        
+        // for (int i=numVar-2; i >= 0; i--) {
+        //     String curr_var = varList.get(i);
+        //     Integer curr_anno = hmVar2Anno.get(curr_var);
+            
+        //     // Substitute all previous annotations sequentially to the current annotation
+        //     // That is, for i th variable, substitute in i+1, ..., numVar-1 variables
+        //     for (int j=i+1; j<=numVar-1; j++) {
+        //         String outer_var = varList.get(j);
+        //         Integer outer_anno = hmVar2Anno.get(outer_var);
+        //         curr_anno = context.reduceProcessXADDLeaf(outer_anno, context.new DeltaFunctionSubstitution(outer_var, curr_anno), true);
+        //     }
+        //     hmVar2Anno.put(curr_var, curr_anno);
+        // }
+    }
     
     public static void testBVarSubs(String[] args) throws Exception {
 //        Test XADD substitution and max
